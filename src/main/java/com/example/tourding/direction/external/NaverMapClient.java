@@ -2,7 +2,7 @@ package com.example.tourding.direction.external;
 
 import com.example.tourding.direction.dto.DirectionResponseDTO;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -16,10 +16,10 @@ import org.springframework.web.client.RestTemplate;
 public class NaverMapClient {
     private final RestTemplate restTemplate;
 
-    @Value("{naver.client.id}")
+    @Value("${naver.client.id}")
     private String clientId;
 
-    @Value("{naver.client.secret}")
+    @Value("${naver.client.secret}")
     private String clientSecret;
 
     public DirectionResponseDTO getDirection(String start, String goal) {
