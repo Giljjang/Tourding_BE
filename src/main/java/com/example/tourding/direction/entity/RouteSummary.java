@@ -47,14 +47,17 @@ public class RouteSummary {
 
     @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequenceNum ASC")
+    @Builder.Default
     private List<RouteSection> routeSections = new ArrayList<>();
 
     @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequenceNum ASC")
+    @Builder.Default
     private List<RouteGuide> routeGuides = new ArrayList<>();
 
     @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequenceNum ASC")
+    @Builder.Default
     private List<RoutePath> routePaths = new ArrayList<>();
 
     public void addRouteSection(RouteSection routeSection) {

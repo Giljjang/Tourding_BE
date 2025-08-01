@@ -1,7 +1,8 @@
 package com.example.tourding.direction.service;
 
-import com.example.tourding.direction.dto.RouteResponseDto;
+import com.example.tourding.direction.dto.RouteSummaryRespDto;
+import com.example.tourding.user.entity.User;
 
 public interface RouteServiceImpl {
-    RouteResponseDto getRoute(String start, String goal);
+    RouteSummaryRespDto getRoute(Long userId, String start, String goal);
 }

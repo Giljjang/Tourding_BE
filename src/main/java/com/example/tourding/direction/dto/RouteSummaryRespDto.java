@@ -1,8 +1,10 @@
 package com.example.tourding.direction.dto;
 
 
+import com.example.tourding.direction.external.ApiRouteResponse;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -12,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 
-public class RouteResponseDto {
+public class RouteSummaryRespDto {
     private LocalDateTime departureTime;
     private Integer distance; // 전체 경로 거리
     private Integer duration; // 전체 경로 소요시간
@@ -36,7 +38,24 @@ public class RouteResponseDto {
     private List<RouteGuideRespDto> routeGuides;
     private List<RoutePathRespDto> routePaths;
 
-    public RouteResponseDto(RouteResponseDto other) {
+    public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra) {
+        var summary = tra.getSummary();
 
+        return RouteSummaryRespDto.builder()
+                .departureTime(LocalDateTime.parse(summary.getDepartureTime()))
+                .distance(summary.getDistance())
+                .duration(summary.getDuration())
+                .fuelPrice(summary.getFuelPrice())
+                .taxiFare(summary.getTaxiFare())
+                .startLon(summary.getStartLon())
+                .startLat(summary.getStartLat())
+                .goalLon(summary.getGoalLon())
+                .goalLat(summary.getGoalLat())
+                .goalDir(summary.getGoalDir())
+                .bboxSwLon(summary.getBboxSwLon())
+                .bboxSwLat(summary.getBboxSwLat())
+                .bboxNeLon(summary.getBboxNeLon())
+                .bboxNeLat(summary.getBboxNeLat())
+                .build();
     }
 }
