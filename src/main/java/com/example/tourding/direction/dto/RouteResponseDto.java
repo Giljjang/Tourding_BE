@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 
-public class DirectionResponseDTO {
+public class RouteResponseDto {
     private LocalDateTime departureTime;
     private Integer distance; // 전체 경로 거리
     private Integer duration; // 전체 경로 소요시간
@@ -36,7 +36,7 @@ public class DirectionResponseDTO {
     private List<RouteGuideRespDto> routeGuides;
     private List<RoutePathRespDto> routePaths;
 
-    public DirectionResponseDTO(DirectionResponseDTO other) {
+    public RouteResponseDto(RouteResponseDto other) {
 
     }
 }

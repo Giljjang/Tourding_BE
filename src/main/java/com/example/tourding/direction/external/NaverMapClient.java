@@ -1,6 +1,6 @@
 package com.example.tourding.direction.external;
 
-import com.example.tourding.direction.dto.DirectionResponseDTO;
+import com.example.tourding.direction.dto.RouteResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -22,7 +22,7 @@ public class NaverMapClient {
     @Value("${naver.client.secret}")
     private String clientSecret;
 
-    public DirectionResponseDTO getDirection(String start, String goal) {
+    public RouteResponseDto getDirection(String start, String goal) {
         String url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1" +
                 "?start=" + start + "&goal=" + goal;
 
@@ -31,8 +31,8 @@ public class NaverMapClient {
         headers.set("x-ncp-apigw-api-secret", clientSecret);
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
-        ResponseEntity<DirectionResponseDTO> response =
-                restTemplate.exchange(url, HttpMethod.GET, entity, DirectionResponseDTO.class);
+        ResponseEntity<RouteResponseDto> response =
+                restTemplate.exchange(url, HttpMethod.GET, entity, RouteResponseDto.class);
 
         return response.getBody();
     }
