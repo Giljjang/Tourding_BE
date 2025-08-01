@@ -11,4 +11,6 @@ import lombok.Setter;
 @NoArgsConstructor
 
 public class DirectionRequestDto {
+    private String start;
+    private String goal;
 }
