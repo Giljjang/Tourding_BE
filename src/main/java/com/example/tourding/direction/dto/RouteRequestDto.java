@@ -10,5 +10,8 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 
-public class DirectionRequestDto {
+public class RouteRequestDto {
+    private Long userId;
+    private String start;
+    private String goal;
 }
