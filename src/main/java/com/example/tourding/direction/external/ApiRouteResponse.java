@@ -1,11 +1,12 @@
 package com.example.tourding.direction.external;
 
 import lombok.Getter;
+import lombok.ToString;
 
 import java.util.List;
 
 @Getter
-
+@ToString
 public class ApiRouteResponse {
     private int code;
     private String message;
@@ -27,22 +28,25 @@ public class ApiRouteResponse {
 
     @Getter
     public static class Summary {
+        private List<List<Double>> bbox;
         private String departureTime;
         private int distance;
         private int duration;
         private int fuelPrice;
         private int taxiFare;
-        private Double startLon; // 시작지점 경도
-        private Double startLat; // 시작지점 위도
-        private Double goalLon; // 도착지점 경도
-        private Double goalLat; // 도착지점 위도
-        private Integer goalDir; // 경로상 진행방향을 중심으로 설정한 도착지의 위치를 나타낸 숫자 (0: 전방, 1:왼쪽, 2:오른쪽(
+        private int tollFare;
+        private StartOrGoal start;
+        private Goal goal;
+    }
 
-        // bbox : 전체 경로 경계 영역
-        private Double bboxSwLon; // 왼쪽 아래 경도
-        private Double bboxSwLat; // 왼쪽 아래 위도
-        private Double bboxNeLon; // 오른쪽 위 경도
-        private Double bboxNeLat; // 오른쪽 위 위도
+    @Getter
+    public static class StartOrGoal {
+        private List<Double> location;
+    }
+
+    @Getter
+    public static class Goal extends StartOrGoal {
+        private int dir;  // 진행방향 정보
     }
 
     @Getter

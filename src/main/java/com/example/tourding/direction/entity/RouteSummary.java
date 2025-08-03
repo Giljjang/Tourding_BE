@@ -34,7 +34,7 @@ public class RouteSummary {
     private Double startLat; // 시작지점 위도
     private Double goalLon; // 도착지점 경도
     private Double goalLat; // 도착지점 위도
-    private Integer goalDir; // 경로상 진행방향을 중심으로 설정한 도착지의 위치를 나타낸 숫자 (0: 전방, 1:왼쪽, 2:오른쪽(
+    private Integer goalDir; // 경로상 진행방향을 중심으로 설정한 도착지의 위치를 나타낸 숫자 (0: 전방, 1:왼쪽, 2:오른쪽)
 
     // bbox : 전체 경로 경계 영역
     private Double bboxSwLon; // 왼쪽 아래 경도
@@ -78,5 +78,23 @@ public class RouteSummary {
     @PrePersist // 엔티티가 최조 저장되기 직전에 자동으로 호출되어서 createdAt을 자동으로 설정해줌
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
+    }
+
+    public void update(RouteSummary routeSummary) {
+        this.departureTime = routeSummary.departureTime;
+        this.distance = routeSummary.distance;
+        this.duration = routeSummary.duration;
+        this.fuelPrice = routeSummary.fuelPrice;
+        this.taxiFare = routeSummary.taxiFare;
+        this.tollFare = routeSummary.tollFare;
+        this.startLon = routeSummary.startLon;
+        this.startLat = routeSummary.startLat;
+        this.goalLon = routeSummary.goalLon;
+        this.goalLat = routeSummary.goalLat;
+        this.goalDir = routeSummary.goalDir;
+        this.bboxSwLon = routeSummary.bboxSwLon;
+        this.bboxSwLat = routeSummary.bboxSwLat;
+        this.bboxNeLon = routeSummary.bboxNeLon;
+        this.bboxNeLat = routeSummary.bboxNeLat;
     }
 }
