@@ -8,9 +8,9 @@ import com.example.tourding.direction.entity.RouteGuide;
 import com.example.tourding.direction.entity.RoutePath;
 import com.example.tourding.direction.entity.RouteSection;
 import com.example.tourding.direction.entity.RouteSummary;
-import com.example.tourding.direction.external.ApiRouteResponse;
-import com.example.tourding.direction.external.NaverMapClient;
-import com.example.tourding.direction.external.RouteMapper;
+import com.example.tourding.external.naver.ApiRouteResponse;
+import com.example.tourding.external.naver.NaverMapClient;
+import com.example.tourding.external.naver.RouteMapper;
 import com.example.tourding.direction.repository.RouteGuideRepository;
 import com.example.tourding.direction.repository.RoutePathRepository;
 import com.example.tourding.direction.repository.RouteSectionRepository;
@@ -23,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 

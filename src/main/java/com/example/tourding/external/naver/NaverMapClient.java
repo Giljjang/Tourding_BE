@@ -1,6 +1,5 @@
-package com.example.tourding.direction.external;
+package com.example.tourding.external.naver;
 
-import com.example.tourding.direction.dto.RouteSummaryRespDto;
 import com.example.tourding.enums.RouteApiCode;
 import com.example.tourding.exception.CustomException;
 import lombok.RequiredArgsConstructor;

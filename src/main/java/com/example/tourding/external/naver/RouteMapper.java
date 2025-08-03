@@ -1,4 +1,4 @@
-package com.example.tourding.direction.external;
+package com.example.tourding.external.naver;
 
 import com.example.tourding.direction.dto.RouteGuideRespDto;
 import com.example.tourding.direction.dto.RoutePathRespDto;

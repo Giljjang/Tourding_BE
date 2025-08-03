@@ -1,7 +1,7 @@
 package com.example.tourding.direction.dto;
 
 import com.example.tourding.direction.entity.RouteGuide;
-import com.example.tourding.direction.external.ApiRouteResponse;
+import com.example.tourding.external.naver.ApiRouteResponse;
 import jakarta.persistence.Column;
 import lombok.*;
 

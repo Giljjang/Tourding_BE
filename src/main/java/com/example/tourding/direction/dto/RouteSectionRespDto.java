@@ -1,8 +1,7 @@
 package com.example.tourding.direction.dto;
 
-import com.example.tourding.direction.entity.RoutePath;
 import com.example.tourding.direction.entity.RouteSection;
-import com.example.tourding.direction.external.ApiRouteResponse;
+import com.example.tourding.external.naver.ApiRouteResponse;
 import lombok.*;
 
 @Getter

@@ -8,6 +8,8 @@ import org.springframework.web.client.RestTemplate;
 public class RestTemplateConfig {
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplate();
+        RestTemplate rt = new RestTemplate();
+        rt.getInterceptors().add(new LoggingInterceptor());
+        return rt;
     }
 }

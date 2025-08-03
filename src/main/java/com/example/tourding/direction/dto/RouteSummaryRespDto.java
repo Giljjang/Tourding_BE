@@ -1,15 +1,12 @@
 package com.example.tourding.direction.dto;
 
 
-import com.example.tourding.direction.entity.RoutePath;
-import com.example.tourding.direction.external.ApiRouteResponse;
+import com.example.tourding.external.naver.ApiRouteResponse;
 import lombok.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
