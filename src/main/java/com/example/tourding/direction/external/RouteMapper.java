@@ -67,6 +67,7 @@ public class RouteMapper {
                 .instructions(dto.getInstructions())
                 .pointIndex(dto.getPointIndex())
                 .type(dto.getType())
+                .sequenceNum(dto.getSequenceNum())
                 .build();
     }
 
@@ -78,6 +79,7 @@ public class RouteMapper {
                 .pointIndex(dto.getPointIndex())
                 .speed(dto.getSpeed())
                 .congestion(dto.getCongestion())
+                .sequenceNum(dto.getSequenceNum())
                 .build();
     }
 
@@ -85,6 +87,7 @@ public class RouteMapper {
         return RoutePath.builder()
                 .lat(dto.getLat())
                 .lon(dto.getLon())
+                .sequenceNum(dto.getSequenceNum())
                 .build();
     }
 }

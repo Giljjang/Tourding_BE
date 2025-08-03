@@ -1,6 +1,8 @@
 package com.example.tourding.direction.external;
 
 import com.example.tourding.direction.dto.RouteSummaryRespDto;
+import com.example.tourding.enums.RouteApiCode;
+import com.example.tourding.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -23,17 +25,33 @@ public class NaverMapClient {
     private String clientSecret;
 
     public ApiRouteResponse getDirection(String start, String goal) {
-        String url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1" +
-                "?start=" + start + "&goal=" + goal;
+        try {
+            final String url = "https://maps.apigw.ntruss.com/map-direction/v1/driving" +
+                    "?start=" + start + "&goal=" + goal;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("x-ncp-apigw-api-key-id", clientId);
-        headers.set("x-ncp-apigw-api-secret", clientSecret);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-NCP-APIGW-API-KEY-ID", clientId);
+            headers.set("X-NCP-APIGW-API-KEY", clientSecret);
 
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        ResponseEntity<ApiRouteResponse> response =
-                restTemplate.exchange(url, HttpMethod.GET, entity, ApiRouteResponse.class);
+            System.out.println("headers: " + headers);
 
-        return response.getBody();
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<ApiRouteResponse> response =
+                    restTemplate.exchange(url, HttpMethod.GET, entity, ApiRouteResponse.class);
+
+            ApiRouteResponse responseBody = response.getBody();
+            RouteApiCode code = RouteApiCode.fromCode(responseBody.getCode());
+
+            if (code != RouteApiCode.SUCCESS) {
+                throw new CustomException(code);
+            }
+
+            return response.getBody();
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("길찾기 API 호출 실패");
+        }
     }
 }

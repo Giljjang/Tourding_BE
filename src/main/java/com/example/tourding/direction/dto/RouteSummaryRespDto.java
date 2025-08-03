@@ -1,12 +1,15 @@
 package com.example.tourding.direction.dto;
 
 
+import com.example.tourding.direction.entity.RoutePath;
 import com.example.tourding.direction.external.ApiRouteResponse;
 import lombok.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -34,12 +37,36 @@ public class RouteSummaryRespDto {
     private Double bboxNeLon; // 오른쪽 위 경도
     private Double bboxNeLat; // 오른쪽 위 위도
 
-    private List<RouteSectionRespDto> routeSections;
-    private List<RouteGuideRespDto> routeGuides;
-    private List<RoutePathRespDto> routePaths;
+    @Builder.Default
+    private List<RouteSectionRespDto> routeSections = new ArrayList<>();
+    @Builder.Default
+    private List<RouteGuideRespDto> routeGuides = new ArrayList<>();
+    @Builder.Default
+    private List<RoutePathRespDto> routePaths = new ArrayList<>();
 
     public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra) {
         var summary = tra.getSummary();
+
+        List<RouteGuideRespDto> guideDtos = new ArrayList<>();
+        if (tra.getGuide() != null && !tra.getGuide().isEmpty()) {
+            for(int i=0; i<tra.getGuide().size(); i++) {
+                guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i));
+            }
+        }
+
+        List<RouteSectionRespDto> sectionDtos = new ArrayList<>();
+        if (tra.getSection() != null && !tra.getSection().isEmpty()) {
+            for(int i=0; i<tra.getSection().size(); i++) {
+                sectionDtos.add(RouteSectionRespDto.from(tra.getSection().get(i), i));
+            }
+        }
+
+        List<RoutePathRespDto> pathDtos = new ArrayList<>();
+        if (tra.getPath() != null && !tra.getPath().isEmpty()) {
+            for(int i=0; i<tra.getPath().size(); i++) {
+                pathDtos.add(RoutePathRespDto.from(tra.getPath().get(i), i));
+            }
+        }
 
         return RouteSummaryRespDto.builder()
                 .departureTime(LocalDateTime.parse(summary.getDepartureTime()))
@@ -47,15 +74,19 @@ public class RouteSummaryRespDto {
                 .duration(summary.getDuration())
                 .fuelPrice(summary.getFuelPrice())
                 .taxiFare(summary.getTaxiFare())
-                .startLon(summary.getStartLon())
-                .startLat(summary.getStartLat())
-                .goalLon(summary.getGoalLon())
-                .goalLat(summary.getGoalLat())
-                .goalDir(summary.getGoalDir())
-                .bboxSwLon(summary.getBboxSwLon())
-                .bboxSwLat(summary.getBboxSwLat())
-                .bboxNeLon(summary.getBboxNeLon())
-                .bboxNeLat(summary.getBboxNeLat())
+                .tollFare(summary.getTollFare())
+                .startLon(summary.getGoal().getLocation().get(0))
+                .startLat(summary.getGoal().getLocation().get(1))
+                .goalLon(summary.getGoal().getLocation().get(0))
+                .goalLat(summary.getGoal().getLocation().get(1))
+                .goalDir(summary.getGoal().getDir())
+                .bboxSwLon(summary.getBbox().get(0).get(0))
+                .bboxSwLat(summary.getBbox().get(0).get(1))
+                .bboxNeLon(summary.getBbox().get(1).get(0))
+                .bboxNeLat(summary.getBbox().get(1).get(1))
+                .routeGuides(guideDtos)
+                .routeSections(sectionDtos)
+                .routePaths(pathDtos)
                 .build();
     }
 }

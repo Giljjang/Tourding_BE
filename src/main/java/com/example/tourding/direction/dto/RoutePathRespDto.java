@@ -1,6 +1,9 @@
 package com.example.tourding.direction.dto;
 
+import com.example.tourding.direction.entity.RoutePath;
 import lombok.*;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -12,4 +15,20 @@ public class RoutePathRespDto {
     private Integer sequenceNum; // path 진행 순서 Open API Response에는 없는거임
     private Double lon; // 경도
     private Double lat; // 위도
+
+    public static RoutePathRespDto from(List<Double> location, int sequenceNum) {
+        return RoutePathRespDto.builder()
+                .lon(location.get(0))
+                .lat(location.get(1))
+                .sequenceNum(sequenceNum)
+                .build();
+    }
+
+    public static RoutePathRespDto fromEntity(RoutePath routePath, int sequenceNum) {
+        return RoutePathRespDto.builder()
+                .lat(routePath.getLat())
+                .lon(routePath.getLon())
+                .sequenceNum(sequenceNum)
+                .build();
+    }
 }

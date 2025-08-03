@@ -1,5 +1,7 @@
 package com.example.tourding.direction.dto;
 
+import com.example.tourding.direction.entity.RouteGuide;
+import com.example.tourding.direction.external.ApiRouteResponse;
 import jakarta.persistence.Column;
 import lombok.*;
 
@@ -18,4 +20,25 @@ public class RouteGuideRespDto {
     private Integer pointIndex; // 경로를 구성하는 좌표의 인덱스
     private Integer type; // 분기점 안내 타입
 
+    public static RouteGuideRespDto from(ApiRouteResponse.Guide guide, int sequenceNum) {
+        return RouteGuideRespDto.builder()
+                .distance(guide.getDistance())
+                .duration(guide.getDuration())
+                .instructions(guide.getInstructions())
+                .pointIndex(guide.getPointIndex())
+                .type(guide.getType())
+                .sequenceNum(sequenceNum)
+                .build();
+    }
+
+    public static RouteGuideRespDto fromEntity(RouteGuide guide, int sequenceNum) {
+        return RouteGuideRespDto.builder()
+                .distance(guide.getDistance())
+                .duration(guide.getDuration())
+                .instructions(guide.getInstructions())
+                .pointIndex(guide.getPointIndex())
+                .sequenceNum(sequenceNum)
+                .type(guide.getType())
+                .build();
+    }
 }
