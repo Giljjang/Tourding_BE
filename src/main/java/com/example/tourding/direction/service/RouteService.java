@@ -39,12 +39,12 @@ public class RouteService implements RouteServiceImpl {
 
 
     @Override
-    public RouteSummaryRespDto getRoute(Long userId, String start, String end) {
+    public RouteSummaryRespDto getRoute(Long userId, String start, String end, String wayPoints) {
         System.out.println("조회하려는 userId : " + userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
 
-        ApiRouteResponse apiRouteResponse = naverMapClient.getDirection(start, end);
+        ApiRouteResponse apiRouteResponse = naverMapClient.getDirection(start, end, wayPoints);
         if(apiRouteResponse.getRoute() == null) {
             throw new RuntimeException("API 응답에 route가 없음");
         }

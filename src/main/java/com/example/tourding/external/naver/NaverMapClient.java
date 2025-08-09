@@ -23,10 +23,10 @@ public class NaverMapClient {
     @Value("${naver.client.secret}")
     private String clientSecret;
 
-    public ApiRouteResponse getDirection(String start, String goal) {
+    public ApiRouteResponse getDirection(String start, String goal, String wayPoints) {
         try {
             final String url = "https://maps.apigw.ntruss.com/map-direction/v1/driving" +
-                    "?start=" + start + "&goal=" + goal;
+                    "?start=" + start + "&goal=" + goal + "&waypoints=" + wayPoints;
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-NCP-APIGW-API-KEY-ID", clientId);
