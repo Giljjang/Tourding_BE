@@ -25,9 +25,14 @@ public class NaverMapClient {
 
     public ApiRouteResponse getDirection(String start, String goal, String wayPoints) {
         try {
-            final String url = "https://maps.apigw.ntruss.com/map-direction/v1/driving" +
-                    "?start=" + start + "&goal=" + goal + "&waypoints=" + wayPoints;
-
+            StringBuilder url = new StringBuilder(
+                    "https://maps.apigw.ntruss.com/map-direction/v1/driving"
+            ).append("?start=").append(start)
+                    .append("&goal=").append(goal)
+                    .append("&waypoints=").append(wayPoints);
+            if(wayPoints != null && !wayPoints.trim().isEmpty()) {
+                url.append("&waypoints=").append(wayPoints);
+            }
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-NCP-APIGW-API-KEY-ID", clientId);
             headers.set("X-NCP-APIGW-API-KEY", clientSecret);
@@ -36,7 +41,7 @@ public class NaverMapClient {
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
             ResponseEntity<ApiRouteResponse> response =
-                    restTemplate.exchange(url, HttpMethod.GET, entity, ApiRouteResponse.class);
+                    restTemplate.exchange(url.toString(), HttpMethod.GET, entity, ApiRouteResponse.class);
 
             ApiRouteResponse responseBody = response.getBody();
             RouteApiCode code = RouteApiCode.fromCode(responseBody.getCode());
