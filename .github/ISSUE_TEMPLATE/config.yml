@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🚀 프로젝트 개요
+    url: https://github.com/your-username/tourding
+    about: 프로젝트에 대한 전반적인 정보를 확인하세요.
+  - name: 📖 README
+    url: https://github.com/your-username/tourding/blob/main/README.md
+    about: 프로젝트 설정 및 사용법을 확인하세요.
+  - name: 💬 토론
+    url: https://github.com/your-username/tourding/discussions
+    about: 프로젝트에 대한 일반적인 토론이나 질문을 해주세요.
