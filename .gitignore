@@ -36,6 +36,26 @@ out/
 ### VS Code ###
 .vscode/
 
+# 환경 변수 파일
 # 중요한정보
 application.yml
 application.properties
+docker-compose.yml
+.env
+.env.local
+.env.prod
+*.env
+env.local
+env.prod
+
+# 데이터베이스 데이터
+mysql_data/
+data/
+
+# 로그 파일
+logs/
+*.log
+
+# 빌드 결과물
+build/
+target/

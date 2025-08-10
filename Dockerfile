@@ -1,5 +1,5 @@
 # 멀티스테이지 빌드를 위한 베이스 이미지
-FROM openjdk:17-jdk-slim AS build
+FROM eclipse-temurin:17-jdk AS build
 
 # 작업 디렉토리 설정
 WORKDIR /app
@@ -20,7 +20,7 @@ COPY src src
 RUN ./gradlew build -x test --no-daemon
 
 # 런타임 이미지
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:17-jre
 
 # 메타데이터 설정
 LABEL maintainer="tourding-team"
