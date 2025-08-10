@@ -1,9 +1,6 @@
 package com.example.tourding.direction.service;
 
-import com.example.tourding.direction.dto.RouteGuideRespDto;
-import com.example.tourding.direction.dto.RoutePathRespDto;
-import com.example.tourding.direction.dto.RouteSectionRespDto;
-import com.example.tourding.direction.dto.RouteSummaryRespDto;
+import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.RouteGuide;
 import com.example.tourding.direction.entity.RoutePath;
 import com.example.tourding.direction.entity.RouteSection;
@@ -39,12 +36,17 @@ public class RouteService implements RouteServiceImpl {
 
 
     @Override
-    public RouteSummaryRespDto getRoute(Long userId, String start, String end, String wayPoints) {
+    public RouteSummaryRespDto getRoute(RouteRequestDto requestDto) {
+        Long userId = requestDto.getUserId();
+        String start = requestDto.getStart();
+        String goal = requestDto.getGoal();
+        String wayPoints = requestDto.getWayPoints();
+
         System.out.println("조회하려는 userId : " + userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
 
-        ApiRouteResponse apiRouteResponse = naverMapClient.getDirection(start, end, wayPoints);
+        ApiRouteResponse apiRouteResponse = naverMapClient.getDirection(start, goal, wayPoints);
         if(apiRouteResponse.getRoute() == null) {
             throw new RuntimeException("API 응답에 route가 없음");
         }

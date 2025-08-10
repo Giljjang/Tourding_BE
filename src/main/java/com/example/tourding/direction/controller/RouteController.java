@@ -17,8 +17,7 @@ public class RouteController {
 
     @PostMapping
     public RouteSummaryRespDto getDirection(@RequestBody RouteRequestDto requestDto) {
-        return routeService.getRoute(requestDto.getUserId(), requestDto.getStart(), requestDto.getGoal()
-        ,requestDto.getWayPoints());
+        return routeService.getRoute(requestDto);
     }
 
     @GetMapping("/guide")

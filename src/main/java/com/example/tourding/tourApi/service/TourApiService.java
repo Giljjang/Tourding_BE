@@ -2,6 +2,7 @@ package com.example.tourding.tourApi.service;
 
 import com.example.tourding.external.tourAPI.SearchKeyWordResponse;
 import com.example.tourding.external.tourAPI.TourAPIClient;
+import com.example.tourding.tourApi.dto.SearchKeyWordReqDto;
 import com.example.tourding.tourApi.dto.SearchKeyWordRespDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,8 +18,13 @@ import java.util.stream.Collectors;
 public class TourApiService {
     private final TourAPIClient tourAPIClient;
 
-    public List<SearchKeyWordRespDto> searchByKeyword(String keyword, int pageNum) {
-        SearchKeyWordResponse response = tourAPIClient.searchKeyWord(keyword, pageNum);
+    public List<SearchKeyWordRespDto> searchByKeyword(SearchKeyWordReqDto searchKeyWordReqDto) {
+        String keyword = searchKeyWordReqDto.getKeyword();
+        int pageNum = searchKeyWordReqDto.getPageNum();
+        String typeCode = searchKeyWordReqDto.getTypeCode();
+        int areaCode = searchKeyWordReqDto.getAreaCode();
+
+        SearchKeyWordResponse response = tourAPIClient.searchKeyWord(keyword, pageNum, typeCode, areaCode);
 
         List<SearchKeyWordResponse.Item> items = response.getResponse()
                 .getBody()
