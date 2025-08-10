@@ -26,14 +26,23 @@ public class TourAPIClient {
 
     private static final String baseUrl = "https://apis.data.go.kr/B551011/KorService2";
 
-    public SearchKeyWordResponse searchKeyWord(String keyword, int pageNum) {
+    public SearchKeyWordResponse searchKeyWord(String keyword, int pageNum, String typeCode, int areaCode) {
         String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
         String safeServiceKey = serviceKey.replace("+", "%2B");
+
+        System.out.println(keyword + " | " + safeServiceKey + " | " + areaCode + " | " + typeCode);
 
         String urlString = baseUrl + "/searchKeyword2?MobileOS=IOS&MobileApp=tourding&_type=json&arrange=A"
                 + "&pageNo=" + pageNum
                 + "&keyword=" + encodedKeyword
                 + "&serviceKey=" + safeServiceKey;
+
+        if(areaCode != 0) {
+            urlString += "&areaCode=" + areaCode;
+        }
+        if(!typeCode.equals("0")) {
+            urlString += "&cat1=" + typeCode;
+        }
 
         URI url = URI.create(urlString);
 
