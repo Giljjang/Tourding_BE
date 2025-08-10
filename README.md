@@ -39,6 +39,27 @@ cp env.example .env
 docker-compose up -d
 ```
 
+## API 문서 (Swagger)
+
+애플리케이션이 실행된 후 다음 URL에서 API 문서를 확인할 수 있습니다:
+
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **API Docs**: http://localhost:8080/api-docs
+
+### 주요 API 엔드포인트
+
+#### Tour API
+- `GET /tour/search-keyword` - 키워드로 관광지 검색
+
+#### Route API  
+- `POST /routes` - 출발지, 도착지 입력해서 길찾기
+- `GET /routes/guide` - 사용자 ID로 경로 안내 조회
+- `GET /routes/path` - 사용자 ID로 경로 조회
+- `GET /routes/section` - 사용자 ID로 경로 구간 조회
+
+#### Health Check
+- `GET /health` - 애플리케이션 상태 확인
+
 ## 주의사항
 
 - **절대 `.env` 파일을 Git에 커밋하지 마세요!**
