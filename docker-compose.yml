@@ -11,6 +11,8 @@ services:
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
+    depends_on:
+      - db
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -18,17 +20,19 @@ services:
       retries: 3
       start_period: 40s
       
-  # 개발용 데이터베이스 (필요시)
-  # db:
-  #   image: mysql:8.0
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: root
-  #     MYSQL_DATABASE: tourding
-  #   ports:
-  #     - "3306:3306"
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql
-  #   restart: unless-stopped
+  # 데이터베이스 서비스 활성화
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tourding
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: Tourding1500!
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
 
-# volumes:
-#   mysql_data:
+volumes:
+  mysql_data:
