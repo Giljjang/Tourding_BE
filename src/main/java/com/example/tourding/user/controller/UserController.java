@@ -1,39 +1,56 @@
 package com.example.tourding.user.controller;
 
+import com.example.tourding.user.dto.request.UserCreateReqDto;
+import com.example.tourding.user.dto.request.UserUpdateReqDto;
+import com.example.tourding.user.dto.response.UserResponseDto;
+import com.example.tourding.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
-@RequestMapping("/")
-@Tag(name = "Health Check", description = "애플리케이션 상태 확인 API")
+@RequiredArgsConstructor
+@RequestMapping("/user")
+@Tag(name = "User API", description = "사용자 관리 API")
 public class UserController {
 
-    @GetMapping("/health")
-    @Operation(
-        summary = "애플리케이션 상태 확인",
-        description = "Tourding 애플리케이션이 정상적으로 실행 중인지 확인합니다."
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200", 
-            description = "애플리케이션 정상 실행",
-            content = @Content(
-                mediaType = "text/plain",
-                schema = @Schema(
-                    type = "string",
-                    example = "Tourding 애플리케이션이 정상적으로 실행 중입니다."
-                )
-            )
-        )
-    })
-    public String healthCheck() {
-        return "Tourding 애플리케이션이 정상적으로 실행 중입니다.";
+    private final UserService userService;
+
+    @Operation(summary = "사용자 생성", description = "새로운 사용자를 등록합니다.")
+    @PostMapping("/create")
+    public ResponseEntity<UserResponseDto> createUser(@RequestBody UserCreateReqDto userCreateReqDto) {
+        return ResponseEntity.ok(userService.register(userCreateReqDto));
+    }
+
+    @Operation(summary = "사용자 조회", description = "ID를 통해 특정 사용자를 조회합니다.")
+    @GetMapping
+    public ResponseEntity<UserResponseDto> getUser(@RequestParam Long id) {
+        return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @Operation(summary = "전체 사용자 조회", description = "등록된 모든 사용자를 조회합니다.")
+    @GetMapping("/all")
+    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
+        return ResponseEntity.ok(userService.findAllUsers());
+    }
+
+    @Operation(summary = "사용자 정보 수정", description = "ID를 기준으로 사용자의 정보를 수정합니다.")
+    @PutMapping("/update")
+    public ResponseEntity<UserResponseDto> updateUser(
+            @RequestParam Long id,
+            @RequestBody UserUpdateReqDto userUpdateReqDto
+    ) {
+        return ResponseEntity.ok(userService.updateUser(id, userUpdateReqDto));
+    }
+
+    @Operation(summary = "사용자 삭제", description = "ID를 기준으로 사용자를 삭제합니다.")
+    @DeleteMapping("/delete")
+    public ResponseEntity<Void> deleteUser(@RequestParam Long id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }
