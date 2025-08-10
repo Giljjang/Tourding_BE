@@ -1,38 +1,23 @@
 version: '3.8'
 
 services:
-  tourding-app:
+
+  app:
     build: .
+    container_name: tourding-app
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - JAVA_OPTS=-Xmx512m -Xms256m
-    volumes:
-      - ./logs:/app/logs
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_APPLICATION_NAME=tourding
+      - SPRING_DATASOURCE_URL=jdbc:mysql://${RDS_HOST}:${RDS_PORT}/${RDS_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      - SPRING_DATASOURCE_USERNAME=${RDS_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${RDS_PASSWORD}
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=true
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQL8Dialect
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+      - TOUR_CLIENT_SERVICEKEY=${TOUR_CLIENT_SERVICEKEY}
     restart: unless-stopped
-    depends_on:
-      - db
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-      
-  # 데이터베이스 서비스 활성화
-  db:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: tourding
-      MYSQL_USER: admin
-      MYSQL_PASSWORD: Tourding1500!
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    restart: unless-stopped
-
-volumes:
-  mysql_data:
