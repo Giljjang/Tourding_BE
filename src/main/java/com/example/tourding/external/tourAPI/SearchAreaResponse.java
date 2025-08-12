@@ -9,7 +9,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Getter
-public class SearchKeyWordResponse {
+public class SearchAreaResponse {
     private Response response;
 
     @Getter

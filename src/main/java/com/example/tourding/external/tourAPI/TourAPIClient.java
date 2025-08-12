@@ -26,70 +26,68 @@ public class TourAPIClient {
 
     private static final String baseUrl = "https://apis.data.go.kr/B551011/KorService2";
 
-    public SearchKeyWordResponse searchKeyWord(String keyword, int pageNum, String typeCode, int areaCode) {
-        String encodedKeyword = URLEncoder.encode(keyword, StandardCharsets.UTF_8);
+    public SearchAreaResponse searchByKeyword(String keyword, int pageNum, String typeCode, int areaCode) {
+        String url = createUrl("/searchKeyword2", pageNum, typeCode, areaCode, keyword);
+        return callApi(url);
+    }
+
+    public SearchAreaResponse searchByCategory(int pageNum, String typeCode, int areaCode) {
+        String url = createUrl("/areaBasedList2", pageNum, typeCode, areaCode);
+        return callApi(url);
+    }
+
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord) {
         String safeServiceKey = serviceKey.replace("+", "%2B");
-
-        System.out.println(keyword + " | " + safeServiceKey + " | " + areaCode + " | " + typeCode);
-
-        String urlString = baseUrl + "/searchKeyword2?MobileOS=IOS&MobileApp=tourding&_type=json&arrange=A"
-                + "&pageNo=" + pageNum
-                + "&keyword=" + encodedKeyword
-                + "&serviceKey=" + safeServiceKey;
+        StringBuilder url = new StringBuilder(baseUrl + path + "?MobileOS=IOS&MobileApp=tourding&_type=json&arrange=A");
+        url.append("&pageNo=").append(pageNum);
+        url.append("&serviceKey=").append(safeServiceKey);
 
         if(areaCode != 0) {
-            urlString += "&areaCode=" + areaCode;
+            url.append("&areaCode=").append(areaCode);
         }
-        if(!typeCode.equals("0")) {
-            urlString += "&cat1=" + typeCode;
+        if(typeCode != null && !typeCode.equals("0")) {
+            url.append("&cat1=").append(typeCode);
         }
+        if(keyWord != null && !keyWord.isBlank()) {
+            String encodedKeyword = URLEncoder.encode(keyWord, StandardCharsets.UTF_8);
+            url.append("&keyword=").append(encodedKeyword);
+        }
+        return url.toString();
+    }
 
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode) {
+        return createUrl(path, pageNum, typeCode, areaCode, null);
+    }
+
+    private SearchAreaResponse callApi(String urlString) {
         URI url = URI.create(urlString);
-
         HttpHeaders headers = new HttpHeaders();
         headers.set("accept", "*/*");
-        headers.set("User-Agent", "curl/7.88.1");
-        headers.set("Connection", "keep-alive");
-
-        System.out.println(url);
 
         HttpEntity<Void> entity = new HttpEntity<>(headers);
-
         ResponseEntity<String> rawResponse = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
-
         String body = rawResponse.getBody();
         String contentType = rawResponse.getHeaders().getFirst(HttpHeaders.CONTENT_TYPE);
 
         jsonMapper.coercionConfigFor(LogicalType.POJO)
                 .setCoercion(CoercionInputShape.EmptyString, CoercionAction.AsNull);
 
-        // 디버깅용
-        System.out.println("[DEBUG] 응답 상태 코드: " + rawResponse.getStatusCode());
-        System.out.println("[DEBUG] 응답 헤더: " + rawResponse.getHeaders());
-        System.out.println("[DEBUG] Content-Type: " + contentType);
-        System.out.println("[DEBUG] Body preview: " + (body != null ? body.substring(0, Math.min(body.length(), 500)) : "null"));
-
-
         if (body == null || body.isBlank()) {
             throw new IllegalStateException("API 응답이 비어있음");
         }
 
-        // XML 에러 감지: contentType에 xml 포함되거나 본문이 < 로 시작하면
         if ((contentType != null && contentType.contains("xml")) || body.trim().startsWith("<")) {
             if (body.contains("SERVICE_KEY_IS_NOT_REGISTERED_ERROR")) {
                 throw new IllegalStateException("서비스 키 인증 실패: SERVICE_KEY_IS_NOT_REGISTERED_ERROR");
             }
-            // 다른 XML 에러면 메시지 추출
             throw new IllegalStateException("XML 에러 응답: " + extractSimpleErrorMessage(body));
         }
 
-        // JSON이면 파싱
         try {
-            return jsonMapper.readValue(body, SearchKeyWordResponse.class);
+            return jsonMapper.readValue(body, SearchAreaResponse.class);
         } catch (Exception e) {
             throw new RuntimeException("JSON 파싱 실패: " + e.getMessage() + " / body: " + body, e);
         }
-
     }
 
     private String extractSimpleErrorMessage(String xml) {
