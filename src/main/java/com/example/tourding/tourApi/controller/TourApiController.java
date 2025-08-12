@@ -1,7 +1,8 @@
 package com.example.tourding.tourApi.controller;
 
+import com.example.tourding.tourApi.dto.SearchCategoryReqDto;
 import com.example.tourding.tourApi.dto.SearchKeyWordReqDto;
-import com.example.tourding.tourApi.dto.SearchKeyWordRespDto;
+import com.example.tourding.tourApi.dto.SearchKeyAreaRespDto;
 import com.example.tourding.tourApi.service.TourApiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,7 +25,7 @@ public class TourApiController {
 
     private final TourApiService tourApiService;
 
-    @GetMapping("/search-keyword")
+    @PostMapping("/search-keyword")
     @Operation(
         summary = "키워드로 관광지 검색",
         description = "키워드, 페이지 번호, 관광지 타입, 지역 코드를 기반으로 관광지를 검색합니다."
@@ -37,7 +38,7 @@ public class TourApiController {
                 mediaType = "application/json",
                 schema = @Schema(
                     type = "array",
-                    implementation = SearchKeyWordRespDto.class
+                    implementation = SearchKeyAreaRespDto.class
                 ),
                 examples = @ExampleObject(
                     name = "성공 응답 예시",
@@ -61,7 +62,7 @@ public class TourApiController {
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "500", description = "서버 내부 오류")
     })
-    public List<SearchKeyWordRespDto> serachKeyword(
+    public List<SearchKeyAreaRespDto> searchKeyword(
         @Parameter(
             description = "검색 요청 정보",
             required = true
@@ -69,5 +70,20 @@ public class TourApiController {
         @RequestBody SearchKeyWordReqDto searchKeyWordReqDto
     ) {
         return tourApiService.searchByKeyword(searchKeyWordReqDto);
+    }
+
+    @PostMapping("/search-category")
+    @Operation(
+            summary = "지역, 관광타입으로 관광지 검색",
+            description = "페이지 번호, 관광지 타입, 지역 코드를 기반으로 관광지를 검색합니다."
+    )
+    public List<SearchKeyAreaRespDto> searchCategory(
+            @Parameter(
+                    description = "검색 요청 정보",
+                    required = true
+            )
+            @RequestBody SearchCategoryReqDto searchCategoryReqDto
+    ) {
+        return tourApiService.searchByCategory(searchCategoryReqDto);
     }
 }
