@@ -1,5 +1,6 @@
 package com.example.tourding.external.tourAPI;
 
+import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.CoercionAction;
 import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
@@ -27,7 +28,7 @@ public class TourAPIClient {
     private static final String baseUrl = "https://apis.data.go.kr/B551011/KorService2";
 
     public SearchAreaResponse searchByKeyword(String keyword, int pageNum, String typeCode, int areaCode) {
-        String url = createUrl("/searchKeyword2", pageNum, typeCode, areaCode, keyword, null, null);
+        String url = createUrl("/searchKeyword2", pageNum, typeCode, areaCode, keyword);
         return callApi(url, SearchAreaResponse.class);
     }
 
@@ -36,19 +37,25 @@ public class TourAPIClient {
         return callApi(url, SearchAreaResponse.class);
     }
 
+    public SearchAreaResponse searchLocationDto(int pageNum, String mapX, String mapY, String radius) {
+        String url = createUrl("/locationBasedList2", pageNum, mapX, mapY, radius);
+        return callApi(url, SearchAreaResponse.class);
+    }
+
     public DetailCommonResponse searchDetailCommon(String contentTypeId) {
-        String url = createUrl("/detailCommon2", 0, contentTypeId);
+        String url = createUrl("/detailCommon2", contentTypeId);
         return callApi(url, DetailCommonResponse.class);
     }
 
     public DetailIntroResponse searchDetailIntro(String contentId, String contentTypeId) {
-        String url = createUrl("/detailIntro2", 0, contentId, contentTypeId);
+        String url = createUrl("/detailIntro2", contentId, contentTypeId);
         return callApi(url, DetailIntroResponse.class);
     }
 
-    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord, String contentId, String contentTypeId) {
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord,
+                             String contentId, String contentTypeId, String mapX, String mapY, String radius) {
         String safeServiceKey = serviceKey.replace("+", "%2B");
-        StringBuilder url = new StringBuilder(baseUrl + path + "?MobileOS=IOS&MobileApp=tourding&_type=json");
+        StringBuilder url = new StringBuilder(baseUrl + path + "?MobileOS=IOS&MobileApp=tourding&_type=json&numOfRows=12");
         url.append("&pageNo=").append(pageNum);
         url.append("&serviceKey=").append(safeServiceKey);
 
@@ -68,18 +75,35 @@ public class TourAPIClient {
         if(contentTypeId != null) {
             url.append("&contentTypeId=").append(contentTypeId);
         }
+        if(mapX != null && !mapX.isBlank()) {
+            url.append("&mapX=").append(mapX);
+        }
+        if(mapY != null && !mapY.isBlank()) {
+            url.append("&mapY=").append(mapY);
+        }
+        if(radius != null && !radius.isBlank()) {
+            url.append("&radius=").append(radius);
+        }
         return url.toString();
     }
 
-    private String createUrl(String path, int pageNum, String typeCode, int areaCode) {
-        return createUrl(path, pageNum, typeCode, areaCode, null,null,null);
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord) { // 지역, 카테고리, 검색어 기반 검색 API 주소 생성
+        return createUrl(path, pageNum, typeCode, areaCode, keyWord, null, null, null, null,null);
     }
 
-    private String createUrl(String path, int pageNum, String contentId) {
-        return createUrl(path, pageNum, null, 0, null, contentId,null);
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode) { // 지역, 카테고리 기반 조회 API 주소 생성
+        return createUrl(path, pageNum, typeCode, areaCode, null,null,null,null,null,null);
     }
-    private String createUrl(String path, int pageNum, String contentId, String contentTypeId) {
-        return createUrl(path, pageNum, null, 0, null, contentId, contentTypeId);
+
+    private String createUrl(String path, String contentId) { // 장소 공통정보 조회 API 생성
+        return createUrl(path, 0, null, 0, null, contentId,null,null,null,null);
+    }
+    private String createUrl(String path, String contentId, String contentTypeId) { // 장소 소개정보 조회 API 주소 생성
+        return createUrl(path, 0, null, 0, null, contentId, contentTypeId,null,null,null);
+    }
+
+    private String createUrl(String path, int pageNum, String mapX, String mapY, String radius) { // 사용자 위치기반 검색 API 주소 생성
+        return createUrl(path, pageNum, null, 0, null,null,null,mapX,mapY,radius);
     }
 
     private <T> T callApi(String urlString, Class<T> responseType) {

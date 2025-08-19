@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public class TourApiService {
     private final TourAPIClient tourAPIClient;
 
-    public List<SearchKeyAreaRespDto> searchByKeyword(SearchKeyWordReqDto searchKeyWordReqDto) {
+    public List<SearchAreaRespDto> searchByKeyword(SearchKeyWordReqDto searchKeyWordReqDto) {
         String keyword = searchKeyWordReqDto.getKeyword();
         int pageNum = searchKeyWordReqDto.getPageNum();
         String typeCode = searchKeyWordReqDto.getTypeCode();
@@ -26,61 +26,57 @@ public class TourApiService {
 
         SearchAreaResponse response = tourAPIClient.searchByKeyword(keyword, pageNum, typeCode, areaCode);
 
-        List<SearchAreaResponse.Item> items = response.getResponse()
-                .getBody()
-                .getItemList();
-
-        if(response.getResponse() == null
-                || response.getResponse().getBody() == null
-                || response.getResponse().getBody().getItems() == null
-                || response.getResponse().getBody().getItems().getItem() == null) {
-            return Collections.emptyList();
-        }
-
-        return items.stream()
-                .map(item -> SearchKeyAreaRespDto.builder()
-                        .title(item.getTitle())
-                        .addr1(item.getAddr1())
-                        .contentid(item.getContentid())
-                        .contenttypeid(item.getContenttypeid())
-                        .firstimage(item.getFirstimage())
-                        .firstimage2(item.getFirstimage2())
-                        .mapx(item.getMapx())
-                        .mapy(item.getMapy())
-                        .build())
-                .collect(Collectors.toList());
+        return praseDto(response);
     }
 
-    public List<SearchKeyAreaRespDto> searchByCategory(SearchCategoryReqDto searchCategoryReqDto) {
+    public List<SearchAreaRespDto> searchByCategory(SearchCategoryReqDto searchCategoryReqDto) {
         int pageNum = searchCategoryReqDto.getPageNum();
         String typeCode = searchCategoryReqDto.getTypeCode();
         int areaCode = searchCategoryReqDto.getAreaCode();
 
         SearchAreaResponse response = tourAPIClient.searchByCategory(pageNum, typeCode, areaCode);
 
-        List<SearchAreaResponse.Item> items = response.getResponse()
-                .getBody()
-                .getItemList();
+        return praseDto(response);
+    }
 
-        if(response.getResponse() == null
-                || response.getResponse().getBody() == null
-                || response.getResponse().getBody().getItems() == null
-                || response.getResponse().getBody().getItems().getItem() == null) {
-            return Collections.emptyList();
+    public List<SearchAreaRespDto> searchByLocation(SearchLocationDto searchLocationReqDto) {
+        int pageNum = searchLocationReqDto.getPageNum();
+        String mapX = searchLocationReqDto.getMapX();
+        String mapY = searchLocationReqDto.getMapY();
+        String radius = searchLocationReqDto.getRadius();
+
+        SearchAreaResponse response = tourAPIClient.searchLocationDto(pageNum, mapX, mapY, radius);
+        return praseDto(response);
+    }
+
+    private List<SearchAreaRespDto> praseDto(SearchAreaResponse response) {
+        if(response != null) {
+            List<SearchAreaResponse.Item> items = response.getResponse()
+                    .getBody()
+                    .getItemList();
+
+            if(response.getResponse() == null
+                    || response.getResponse().getBody() == null
+                    || response.getResponse().getBody().getItems() == null
+                    || response.getResponse().getBody().getItems().getItem() == null) {
+                return Collections.emptyList();
+            }
+
+            return items.stream()
+                    .map(item -> SearchAreaRespDto.builder()
+                            .title(item.getTitle())
+                            .addr1(item.getAddr1())
+                            .contentid(item.getContentid())
+                            .contenttypeid(item.getContenttypeid())
+                            .firstimage(item.getFirstimage())
+                            .firstimage2(item.getFirstimage())
+                            .mapx(item.getMapx())
+                            .mapy(item.getMapy())
+                            .build())
+                    .collect(Collectors.toList());
+        } else {
+            return null;
         }
-
-        return items.stream()
-                .map(item -> SearchKeyAreaRespDto.builder()
-                        .title(item.getTitle())
-                        .addr1(item.getAddr1())
-                        .contentid(item.getContentid())
-                        .contenttypeid(item.getContenttypeid())
-                        .firstimage(item.getFirstimage())
-                        .firstimage2(item.getFirstimage())
-                        .mapx(item.getMapx())
-                        .mapy(item.getMapy())
-                        .build())
-                .collect(Collectors.toList());
     }
 
     public DetailInfoRespDto searchDetailInfo(DetailInfoReqDto detailInfoReqDto) {
