@@ -36,7 +36,7 @@ public class TourApiController {
                 mediaType = "application/json",
                 schema = @Schema(
                     type = "array",
-                    implementation = SearchKeyAreaRespDto.class
+                    implementation = SearchAreaRespDto.class
                 ),
                 examples = @ExampleObject(
                     name = "성공 응답 예시",
@@ -60,7 +60,7 @@ public class TourApiController {
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "500", description = "서버 내부 오류")
     })
-    public List<SearchKeyAreaRespDto> searchKeyword(
+    public List<SearchAreaRespDto> searchKeyword(
         @Parameter(
             description = "검색 요청 정보",
             required = true
@@ -75,7 +75,7 @@ public class TourApiController {
             summary = "지역, 관광타입으로 관광지 검색",
             description = "페이지 번호, 관광지 타입, 지역 코드를 기반으로 관광지를 검색합니다."
     )
-    public List<SearchKeyAreaRespDto> searchCategory(
+    public List<SearchAreaRespDto> searchCategory(
             @Parameter(
                     description = "검색 요청 정보",
                     required = true
@@ -98,5 +98,20 @@ public class TourApiController {
             @RequestBody DetailInfoReqDto detailInfoReqDto
     ) {
         return tourApiService.searchDetailInfo(detailInfoReqDto);
+    }
+
+    @PostMapping("/search-location")
+    @Operation(
+            summary = "사용자 위치기반 관광지 검색",
+            description = "페이지 수, 사용자의 경도, 위도, 검색 반경 (최대 20000m (20km) 입력단위 : m)를 입력해서 사용자 위치 기반 장소를 검색합니다."
+    )
+    public List<SearchAreaRespDto> areaDetail(
+            @Parameter(
+                    description = "관광지의 contentId, contentTypeId",
+                    required = true
+            )
+            @RequestBody SearchLocationDto searchLocationDto
+    ) {
+        return tourApiService.searchByLocation(searchLocationDto);
     }
 }
