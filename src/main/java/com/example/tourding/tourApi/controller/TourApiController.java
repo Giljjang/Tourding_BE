@@ -1,8 +1,6 @@
 package com.example.tourding.tourApi.controller;
 
-import com.example.tourding.tourApi.dto.SearchCategoryReqDto;
-import com.example.tourding.tourApi.dto.SearchKeyWordReqDto;
-import com.example.tourding.tourApi.dto.SearchKeyAreaRespDto;
+import com.example.tourding.tourApi.dto.*;
 import com.example.tourding.tourApi.service.TourApiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -85,5 +83,20 @@ public class TourApiController {
             @RequestBody SearchCategoryReqDto searchCategoryReqDto
     ) {
         return tourApiService.searchByCategory(searchCategoryReqDto);
+    }
+
+    @PostMapping("/area-detail")
+    @Operation(
+            summary = "관광지 상세보기",
+            description = "선택한 관광지의 contentId, contentTypeId를 기반으로 상세정보를 보여줍니다."
+    )
+    public DetailInfoRespDto areaDetail(
+            @Parameter(
+                    description = "관광지의 contentId, contentTypeId",
+                    required = true
+            )
+            @RequestBody DetailInfoReqDto detailInfoReqDto
+    ) {
+        return tourApiService.searchDetailInfo(detailInfoReqDto);
     }
 }

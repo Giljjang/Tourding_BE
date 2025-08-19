@@ -27,18 +27,28 @@ public class TourAPIClient {
     private static final String baseUrl = "https://apis.data.go.kr/B551011/KorService2";
 
     public SearchAreaResponse searchByKeyword(String keyword, int pageNum, String typeCode, int areaCode) {
-        String url = createUrl("/searchKeyword2", pageNum, typeCode, areaCode, keyword);
-        return callApi(url);
+        String url = createUrl("/searchKeyword2", pageNum, typeCode, areaCode, keyword, null, null);
+        return callApi(url, SearchAreaResponse.class);
     }
 
     public SearchAreaResponse searchByCategory(int pageNum, String typeCode, int areaCode) {
         String url = createUrl("/areaBasedList2", pageNum, typeCode, areaCode);
-        return callApi(url);
+        return callApi(url, SearchAreaResponse.class);
     }
 
-    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord) {
+    public DetailCommonResponse searchDetailCommon(String contentTypeId) {
+        String url = createUrl("/detailCommon2", 0, contentTypeId);
+        return callApi(url, DetailCommonResponse.class);
+    }
+
+    public DetailIntroResponse searchDetailIntro(String contentId, String contentTypeId) {
+        String url = createUrl("/detailIntro2", 0, contentId, contentTypeId);
+        return callApi(url, DetailIntroResponse.class);
+    }
+
+    private String createUrl(String path, int pageNum, String typeCode, int areaCode, String keyWord, String contentId, String contentTypeId) {
         String safeServiceKey = serviceKey.replace("+", "%2B");
-        StringBuilder url = new StringBuilder(baseUrl + path + "?MobileOS=IOS&MobileApp=tourding&_type=json&arrange=A");
+        StringBuilder url = new StringBuilder(baseUrl + path + "?MobileOS=IOS&MobileApp=tourding&_type=json");
         url.append("&pageNo=").append(pageNum);
         url.append("&serviceKey=").append(safeServiceKey);
 
@@ -52,14 +62,27 @@ public class TourAPIClient {
             String encodedKeyword = URLEncoder.encode(keyWord, StandardCharsets.UTF_8);
             url.append("&keyword=").append(encodedKeyword);
         }
+        if(contentId != null) {
+            url.append("&contentId=").append(contentId);
+        }
+        if(contentTypeId != null) {
+            url.append("&contentTypeId=").append(contentTypeId);
+        }
         return url.toString();
     }
 
     private String createUrl(String path, int pageNum, String typeCode, int areaCode) {
-        return createUrl(path, pageNum, typeCode, areaCode, null);
+        return createUrl(path, pageNum, typeCode, areaCode, null,null,null);
     }
 
-    private SearchAreaResponse callApi(String urlString) {
+    private String createUrl(String path, int pageNum, String contentId) {
+        return createUrl(path, pageNum, null, 0, null, contentId,null);
+    }
+    private String createUrl(String path, int pageNum, String contentId, String contentTypeId) {
+        return createUrl(path, pageNum, null, 0, null, contentId, contentTypeId);
+    }
+
+    private <T> T callApi(String urlString, Class<T> responseType) {
         URI url = URI.create(urlString);
         HttpHeaders headers = new HttpHeaders();
         headers.set("accept", "*/*");
@@ -84,7 +107,7 @@ public class TourAPIClient {
         }
 
         try {
-            return jsonMapper.readValue(body, SearchAreaResponse.class);
+            return jsonMapper.readValue(body, responseType);
         } catch (Exception e) {
             throw new RuntimeException("JSON 파싱 실패: " + e.getMessage() + " / body: " + body, e);
         }
