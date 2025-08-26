@@ -20,7 +20,6 @@ public class DetailInfoRespDto {
     private String overview;
 
     // ===== 12 (관광지) =====
-    private String opendate;   // 개장일
     private String parking;    // 주차시설
     private String restdate;   // 쉬는날
     private String useseason;  // 이용시기

@@ -106,7 +106,6 @@ public class TourApiService {
                 .address(address)
                 .overview(commonItem.getOverview())
                 // ===== 12 (관광지) =====
-                .opendate(introItem.getOpendate())
                 .packing(introItem.getPacking())
                 .restdate(introItem.getRestdate())
                 .useseason(introItem.getUseseason())
