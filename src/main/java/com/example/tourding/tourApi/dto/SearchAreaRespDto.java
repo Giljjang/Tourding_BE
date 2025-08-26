@@ -6,7 +6,7 @@ import lombok.Getter;
 @Getter
 @Builder
 
-public class SearchKeyWordRespDto {
+public class SearchAreaRespDto {
     // tourApi에서 키워드 검색조회 /searchKeyword2 주소로 API 호출할 떄 사용
     private String title; // 장소 이름
     private String addr1; // 장소 주소
