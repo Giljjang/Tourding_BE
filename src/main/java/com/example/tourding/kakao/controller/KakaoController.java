@@ -18,7 +18,7 @@ public class KakaoController {
 
     private final KakaoApiService kakaoApiService;
 
-    @GetMapping("/convenience")
+    @PostMapping("/convenience")
     @Operation(
             summary = "사용자의 현재 좌표를 입력받아서 근처 편의시설 정보를 리턴",
             description = "lon : 경도, lat: 위도 radius : 검색 반경 (m)단위 최대 20000 20km임" +
