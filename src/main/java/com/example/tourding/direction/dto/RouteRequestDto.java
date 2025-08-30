@@ -15,4 +15,5 @@ public class RouteRequestDto {
     private String start;
     private String goal;
     private String wayPoints;
+    private String locateName;
 }

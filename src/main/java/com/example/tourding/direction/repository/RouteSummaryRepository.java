@@ -10,5 +10,5 @@ import java.util.Optional;
 @Repository
 
 public interface RouteSummaryRepository extends JpaRepository<RouteSummary, Long> {
-    Optional<RouteSummary> findByUser(User user);
+    Optional<RouteSummary> findRouteSummaryByUserId(Long userId);
 }

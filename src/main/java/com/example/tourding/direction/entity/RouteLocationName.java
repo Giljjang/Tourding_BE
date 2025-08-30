@@ -10,13 +10,14 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 
-public class RoutePath { // 경로를 구성하는 모든 좌표 표시
+public class RouteLocationName {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private Integer sequenceNum; // path 진행 순서 Open API Response에는 없는거임
+    private Integer sequenceNum;
     private String lon; // 경도
     private String lat; // 위도
+    private String name;
+    private String type;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "summary_id", nullable = false)
