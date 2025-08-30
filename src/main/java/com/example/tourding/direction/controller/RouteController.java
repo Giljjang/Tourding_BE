@@ -123,7 +123,7 @@ public class RouteController {
         return routeService.getSectionByUserId(userId);
     }
 
-    @GetMapping("/locationName")
+    @GetMapping("/location-name")
     @Operation(
             summary = "사용자 ID로 출발지,경유지,도착지 정보(이름, 위도, 경도, type) 조회",
             description = "사용자 ID로 출발지,경유지,도착지 정보를 받습니다." +
