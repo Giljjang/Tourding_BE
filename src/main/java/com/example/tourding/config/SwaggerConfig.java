@@ -29,7 +29,7 @@ public class SwaggerConfig {
                 .servers(List.of(
                         new Server().url(baseUrl).description("현재 서버"),
                         new Server().url("http://localhost:8080").description("로컬 개발 서버"),
-                        new Server().url("http://3.38.209.142:8080").description("EC2 프로덕션 서버")
+                        new Server().url("http://43.203.246.49:8080").description("EC2 프로덕션 서버")
                 ));
     }
 
