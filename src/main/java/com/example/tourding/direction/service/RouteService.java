@@ -40,15 +40,8 @@ public class RouteService implements RouteServiceImpl {
         String locateName = requestDto.getLocateName();
         String[][] locationCodes = parseLocation(start,goal,wayPoints);
 
-        for (String[] locationCode : locationCodes) {
-            for (String code : locationCode) {
-                System.out.println(code);
-            }
-        }
-
         List<String> locationNames = List.of(locateName.split(","));
 
-        System.out.println("조회하려는 userId : " + userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
 
@@ -101,123 +94,28 @@ public class RouteService implements RouteServiceImpl {
         RouteSummary existingSummary = routeSummaryRepository.findById(summaryId)
                 .orElseThrow(() -> new EntityNotFoundException("기존 경로 요약을 찾을 수 없습니다."));
         
-        System.out.println("삭제 전 - existingSummary ID: " + existingSummary.getId() + ", User ID: " + existingSummary.getUser().getId());
-        
         // JPQL을 사용하여 데이터베이스에서 직접 삭제
-        System.out.println("연관 엔티티 삭제 시작");
         
         // RouteGuide 삭제
         routeGuideRepository.deleteBySummaryId(summaryId);
-        System.out.println("RouteGuide 삭제 완료");
         
         // RoutePath 삭제
         routePathRepository.deleteBySummaryId(summaryId);
-        System.out.println("RoutePath 삭제 완료");
         
         // RouteSection 삭제
         routeSectionRepository.deleteBySummaryId(summaryId);
-        System.out.println("RouteSection 삭제 완료");
         
         // RouteLocationName 삭제
         routeLocationNameRepository.deleteBySummaryId(summaryId);
-        System.out.println("RouteLocationName 삭제 완료");
         
         // 이제 summary 삭제
         routeSummaryRepository.deleteById(summaryId);
         
         // 즉시 데이터베이스에 반영
-        System.out.println("flush 시도");
         routeSummaryRepository.flush();
-        System.out.println("flush 완료");
         
-        // User에서 기존 summary 참조 제거 (save는 호출하지 않음)
+        // User에서 기존 summary 참조 제거
         user.setSummary(null);
-        
-        System.out.println("삭제 및 참조 제거 완료");
-        
-        // 삭제 확인을 위한 상세한 검증
-        System.out.println("=== 삭제 검증 시작 ===");
-        
-        // 1. RouteSummary 삭제 확인
-        try {
-            RouteSummary checkSummary = routeSummaryRepository.findById(summaryId).orElse(null);
-            if (checkSummary == null) {
-                System.out.println("✅ RouteSummary 삭제 확인됨: ID " + summaryId + "가 존재하지 않음");
-            } else {
-                System.out.println("❌ RouteSummary 삭제 실패: ID " + summaryId + "가 여전히 존재함");
-                System.out.println("   - Summary 정보: " + checkSummary.getId() + ", User ID: " + checkSummary.getUser().getId());
-            }
-        } catch (Exception e) {
-            System.out.println("❌ RouteSummary 삭제 확인 중 에러: " + e.getMessage());
-        }
-        
-        // 2. RouteGuide 삭제 확인
-        try {
-            List<RouteGuide> remainingGuides = routeGuideRepository.findRouteGuideBySummaryId(summaryId);
-            if (remainingGuides.isEmpty()) {
-                System.out.println("✅ RouteGuide 삭제 확인됨: Summary ID " + summaryId + "에 대한 가이드가 없음");
-            } else {
-                System.out.println("❌ RouteGuide 삭제 실패: " + remainingGuides.size() + "개의 가이드가 여전히 존재함");
-                remainingGuides.forEach(guide -> System.out.println("   - Guide ID: " + guide.getId()));
-            }
-        } catch (Exception e) {
-            System.out.println("❌ RouteGuide 삭제 확인 중 에러: " + e.getMessage());
-        }
-        
-        // 3. RoutePath 삭제 확인
-        try {
-            List<RoutePath> remainingPaths = routePathRepository.findRoutePathBySummaryId(summaryId);
-            if (remainingPaths.isEmpty()) {
-                System.out.println("✅ RoutePath 삭제 확인됨: Summary ID " + summaryId + "에 대한 경로가 없음");
-            } else {
-                System.out.println("❌ RoutePath 삭제 실패: " + remainingPaths.size() + "개의 경로가 여전히 존재함");
-                remainingPaths.forEach(path -> System.out.println("   - Path ID: " + path.getId()));
-            }
-        } catch (Exception e) {
-            System.out.println("❌ RoutePath 삭제 확인 중 에러: " + e.getMessage());
-        }
-        
-        // 4. RouteSection 삭제 확인
-        try {
-            List<RouteSection> remainingSections = routeSectionRepository.findRouteSectionBySummaryId(summaryId);
-            if (remainingSections.isEmpty()) {
-                System.out.println("✅ RouteSection 삭제 확인됨: Summary ID " + summaryId + "에 대한 구간이 없음");
-            } else {
-                System.out.println("❌ RouteSection 삭제 실패: " + remainingSections.size() + "개의 구간이 여전히 존재함");
-                remainingSections.forEach(section -> System.out.println("   - Section ID: " + section.getId()));
-            }
-        } catch (Exception e) {
-            System.out.println("❌ RouteSection 삭제 확인 중 에러: " + e.getMessage());
-        }
-        
-        // 5. RouteLocationName 삭제 확인
-        try {
-            List<RouteLocationName> remainingLocations = routeLocationNameRepository.findRouteLocationNameBySummaryId(summaryId);
-            if (remainingLocations.isEmpty()) {
-                System.out.println("✅ RouteLocationName 삭제 확인됨: Summary ID " + summaryId + "에 대한 위치명이 없음");
-            } else {
-                System.out.println("❌ RouteLocationName 삭제 실패: " + remainingLocations.size() + "개의 위치명이 여전히 존재함");
-                remainingLocations.forEach(location -> System.out.println("   - Location ID: " + location.getId()));
-            }
-        } catch (Exception e) {
-            System.out.println("❌ RouteLocationName 삭제 확인 중 에러: " + e.getMessage());
-        }
-        
-        // 6. User의 summary 참조 확인
-        try {
-            User checkUser = userRepository.findById(user.getId()).orElse(null);
-            if (checkUser != null && checkUser.getSummary() == null) {
-                System.out.println("✅ User summary 참조 제거 확인됨: User ID " + user.getId() + "의 summary가 null");
-            } else if (checkUser != null && checkUser.getSummary() != null) {
-                System.out.println("❌ User summary 참조 제거 실패: User ID " + user.getId() + "의 summary가 여전히 존재함 - ID: " + checkUser.getSummary().getId());
-            } else {
-                System.out.println("❌ User 조회 실패");
-            }
-        } catch (Exception e) {
-            System.out.println("❌ User summary 참조 확인 중 에러: " + e.getMessage());
-        }
-        
-        System.out.println("=== 삭제 검증 완료 ===");
     }
     
     @Transactional
@@ -290,7 +188,7 @@ public class RouteService implements RouteServiceImpl {
                     else if(i == locationNames.size() - 1) type = "Goal";
                     else type = "WayPoint";
 
-                    System.out.println(name + " / " + type);
+
 
                     RouteLocationName routeLocationName = RouteLocationName.builder()
                             .name(name)
