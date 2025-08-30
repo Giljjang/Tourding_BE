@@ -90,31 +90,17 @@ public class RouteService implements RouteServiceImpl {
     
     @Transactional
     public void deleteUserRoute(Long summaryId, User user) {
-        // 기존 summary와 관련된 모든 데이터를 삭제
         RouteSummary existingSummary = routeSummaryRepository.findById(summaryId)
                 .orElseThrow(() -> new EntityNotFoundException("기존 경로 요약을 찾을 수 없습니다."));
-        
-        // JPQL을 사용하여 데이터베이스에서 직접 삭제
-        
-        // RouteGuide 삭제
+
         routeGuideRepository.deleteBySummaryId(summaryId);
-        
-        // RoutePath 삭제
         routePathRepository.deleteBySummaryId(summaryId);
-        
-        // RouteSection 삭제
         routeSectionRepository.deleteBySummaryId(summaryId);
-        
-        // RouteLocationName 삭제
         routeLocationNameRepository.deleteBySummaryId(summaryId);
-        
-        // 이제 summary 삭제
         routeSummaryRepository.deleteById(summaryId);
-        
-        // 즉시 데이터베이스에 반영
+
         routeSummaryRepository.flush();
-        
-        // User에서 기존 summary 참조 제거
+
         user.setSummary(null);
     }
     
@@ -233,6 +219,17 @@ public class RouteService implements RouteServiceImpl {
 
         return IntStream.range(0, routeSections.size())
                 .mapToObj(i -> RouteSectionRespDto.fromEntity(routeSections.get(i), i))
+                .collect(Collectors.toList());
+    }
+
+    public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
+        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+
+        List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryId(routeSummary.getId());
+
+        return IntStream.range(0, routeLocationNames.size())
+                .mapToObj(i -> RouteLocationNameRespDto.fromEntity(routeLocationNames.get(i), i))
                 .collect(Collectors.toList());
     }
 
