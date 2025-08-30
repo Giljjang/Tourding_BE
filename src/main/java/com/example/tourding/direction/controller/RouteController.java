@@ -31,61 +31,7 @@ public class RouteController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200", 
-            description = "경로 찾기 성공",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = RouteSummaryRespDto.class),
-                examples = @ExampleObject(
-                    name = "성공 응답 예시",
-                    value = """
-                    {
-                        "departureTime": "2025-08-01T17:58:32",
-                        "distance": 17583,
-                        "duration": 1479055,
-                        "fuelPrice": 2095,
-                        "taxiFare": 22200,
-                        "tollFare": 0,
-                        "startLon": 129.3881114,
-                        "startLat": 36.1036573,
-                        "goalLon": 129.3881114,
-                        "goalLat": 36.1036573,
-                        "goalDir": 1,
-                        "bboxSwLon": 129.3185491,
-                        "bboxSwLat": 36.0108079,
-                        "bboxNeLon": 129.398555,
-                        "bboxNeLat": 36.1074012,
-                        "routeSections": [
-                            {
-                                "sequenceNum": 0,
-                                "name": "희망대로659번길",
-                                "congestion": 2,
-                                "distance": 475,
-                                "speed": 10,
-                                "pointCount": 22,
-                                "pointIndex": 1
-                            }
-                        ],
-                        "routeGuides": [
-                            {
-                                "sequenceNum": 0,
-                                "distance": 17,
-                                "duration": 6119,
-                                "instructions": "'희망대로659번길' 방면으로 우회전",
-                                "pointIndex": 1,
-                                "type": 3
-                            }
-                        ],
-                        "routePaths": [
-                            {
-                                "sequenceNum": 0,
-                                "lon": 129.3480647,
-                                "lat": 36.0144849
-                            }
-                        ]
-                    }
-                    """
-                )
-            )
+            description = "경로 찾기 성공"
         ),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음"),
@@ -125,37 +71,7 @@ public class RouteController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200", 
-            description = "경로 안내 조회 성공",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(
-                    type = "array",
-                    implementation = RouteGuideRespDto.class
-                ),
-                examples = @ExampleObject(
-                    name = "성공 응답 예시",
-                    value = """
-                    [
-                        {
-                            "sequenceNum": 0,
-                            "distance": 17,
-                            "duration": 6119,
-                            "instructions": "'희망대로659번길' 방면으로 우회전",
-                            "pointIndex": 1,
-                            "type": 3
-                        },
-                        {
-                            "sequenceNum": 1,
-                            "distance": 475,
-                            "duration": 157222,
-                            "instructions": "'희망대로' 방면으로 우회전",
-                            "pointIndex": 22,
-                            "type": 3
-                        }
-                    ]
-                    """
-                )
-            )
+            description = "경로 안내 조회 성공"
         ),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "사용자 또는 경로 정보를 찾을 수 없음")
@@ -175,31 +91,7 @@ public class RouteController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200", 
-            description = "경로 조회 성공",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(
-                    type = "array",
-                    implementation = RoutePathRespDto.class
-                ),
-                examples = @ExampleObject(
-                    name = "성공 응답 예시",
-                    value = """
-                    [
-                        {
-                            "sequenceNum": 0,
-                            "lon": 129.3982599,
-                            "lat": 36.0799804
-                        },
-                        {
-                            "sequenceNum": 1,
-                            "lon": 129.39825,
-                            "lat": 36.0806747
-                        }
-                    ]
-                    """
-                )
-            )
+            description = "경로 조회 성공"
         ),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "사용자 또는 경로 정보를 찾을 수 없음")
@@ -219,39 +111,7 @@ public class RouteController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200", 
-            description = "경로 구간 조회 성공",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(
-                    type = "array",
-                    implementation = RouteSectionRespDto.class
-                ),
-                examples = @ExampleObject(
-                    name = "성공 응답 예시",
-                    value = """
-                    [
-                        {
-                            "sequenceNum": 0,
-                            "name": "천마로",
-                            "congestion": 1,
-                            "distance": 1540,
-                            "speed": 16,
-                            "pointCount": 36,
-                            "pointIndex": 4
-                        },
-                        {
-                            "sequenceNum": 1,
-                            "name": "영일만산단로",
-                            "congestion": 1,
-                            "distance": 1014,
-                            "speed": 28,
-                            "pointCount": 19,
-                            "pointIndex": 39
-                        }
-                    ]
-                    """
-                )
-            )
+            description = "경로 구간 조회 성공"
         ),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "사용자 또는 경로 정보를 찾을 수 없음")
@@ -261,5 +121,30 @@ public class RouteController {
         @RequestParam Long userId
     ) {
         return routeService.getSectionByUserId(userId);
+    }
+
+    @GetMapping("/locationName")
+    @Operation(
+            summary = "사용자 ID로 출발지,경유지,도착지 정보(이름, 위도, 경도, type) 조회",
+            description = "사용자 ID로 출발지,경유지,도착지 정보를 받습니다." +
+                    "sequenceNum : 출발지 ~ 도착지 순서" +
+                    "name : 장소 이름" +
+                    "type : 출발지/경유지/도착지를 나타내는 type 출발지 : Start, 경유지 : WayPoint, 도착지 : Goal" +
+                    "lon : 경도" +
+                    "lat : 위도"
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공"
+            ),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청"),
+            @ApiResponse(responseCode = "404", description = "사용자 또는 경로 정보를 찾을 수 없음")
+    })
+    public List<RouteLocationNameRespDto> getLocationName(
+            @Parameter(description = "사용자 ID", required = true, example = "1")
+            @RequestParam Long userId
+    ) {
+        return routeService.getLocationNameByUserId(userId);
     }
 }
