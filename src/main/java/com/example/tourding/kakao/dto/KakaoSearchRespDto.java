@@ -1,0 +1,16 @@
+package com.example.tourding.kakao.dto;
+
+import lombok.*;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+
+public class KakaoSearchRespDto {
+    private String name;
+    private String type;
+    private String lon; // 경도 (x)
+    private String lat; // 위도 (y)
+}
