@@ -13,10 +13,10 @@ import java.util.List;
 
 public class RoutePathRespDto {
     private Integer sequenceNum; // path 진행 순서 Open API Response에는 없는거임
-    private Double lon; // 경도
-    private Double lat; // 위도
+    private String lon; // 경도
+    private String lat; // 위도
 
-    public static RoutePathRespDto from(List<Double> location, int sequenceNum) {
+    public static RoutePathRespDto from(List<String> location, int sequenceNum) {
         return RoutePathRespDto.builder()
                 .lon(location.get(0))
                 .lat(location.get(1))

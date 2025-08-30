@@ -30,17 +30,17 @@ public class RouteSummary {
     private Integer taxiFare; // 택시요금
     private Integer tollFare; // 톨게이트 비용
 
-    private Double startLon; // 시작지점 경도
-    private Double startLat; // 시작지점 위도
-    private Double goalLon; // 도착지점 경도
-    private Double goalLat; // 도착지점 위도
+    private String startLon; // 시작지점 경도
+    private String startLat; // 시작지점 위도
+    private String goalLon; // 도착지점 경도
+    private String goalLat; // 도착지점 위도
     private Integer goalDir; // 경로상 진행방향을 중심으로 설정한 도착지의 위치를 나타낸 숫자 (0: 전방, 1:왼쪽, 2:오른쪽)
 
     // bbox : 전체 경로 경계 영역
-    private Double bboxSwLon; // 왼쪽 아래 경도
-    private Double bboxSwLat; // 왼쪽 아래 위도
-    private Double bboxNeLon; // 오른쪽 위 경도
-    private Double bboxNeLat; // 오른쪽 위 위도
+    private String bboxSwLon; // 왼쪽 아래 경도
+    private String bboxSwLat; // 왼쪽 아래 위도
+    private String bboxNeLon; // 오른쪽 위 경도
+    private String bboxNeLat; // 오른쪽 위 위도
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -60,6 +60,10 @@ public class RouteSummary {
     @Builder.Default
     private List<RoutePath> routePaths = new ArrayList<>();
 
+    @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<RouteLocationName> routeLocationNames = new ArrayList<>();
+
     public void addRouteSection(RouteSection routeSection) {
         routeSections.add(routeSection);
         routeSection.setSummary(this);
@@ -73,6 +77,11 @@ public class RouteSummary {
     public void addRoutePathPoint(RoutePath routePath) {
         routePaths.add(routePath);
         routePath.setSummary(this);
+    }
+
+    public void addRouteLocationName(RouteLocationName routeLocationName) {
+        this.routeLocationNames.add(routeLocationName);
+        routeLocationName.setSummary(this);
     }
 
     @PrePersist // 엔티티가 최조 저장되기 직전에 자동으로 호출되어서 createdAt을 자동으로 설정해줌
