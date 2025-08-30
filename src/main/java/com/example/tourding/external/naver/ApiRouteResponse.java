@@ -22,13 +22,13 @@ public class ApiRouteResponse {
     public static class Traoptimal {
         private Summary summary;
         private List<Guide> guide;
-        private List<List<Double>> path;
+        private List<List<String>> path;
         private List<Section> section;
     }
 
     @Getter
     public static class Summary {
-        private List<List<Double>> bbox;
+        private List<List<String>> bbox;
         private String departureTime;
         private int distance;
         private int duration;
@@ -41,7 +41,7 @@ public class ApiRouteResponse {
 
     @Getter
     public static class StartOrGoal {
-        private List<Double> location;
+        private List<String> location;
     }
 
     @Getter

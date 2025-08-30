@@ -1,17 +1,10 @@
 package com.example.tourding.direction.service;
 
 import com.example.tourding.direction.dto.*;
-import com.example.tourding.direction.entity.RouteGuide;
-import com.example.tourding.direction.entity.RoutePath;
-import com.example.tourding.direction.entity.RouteSection;
-import com.example.tourding.direction.entity.RouteSummary;
+import com.example.tourding.direction.entity.*;
+import com.example.tourding.direction.repository.*;
 import com.example.tourding.external.naver.ApiRouteResponse;
 import com.example.tourding.external.naver.NaverMapClient;
-import com.example.tourding.external.naver.RouteMapper;
-import com.example.tourding.direction.repository.RouteGuideRepository;
-import com.example.tourding.direction.repository.RoutePathRepository;
-import com.example.tourding.direction.repository.RouteSectionRepository;
-import com.example.tourding.direction.repository.RouteSummaryRepository;
 import com.example.tourding.user.entity.User;
 import com.example.tourding.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -19,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -33,6 +27,8 @@ public class RouteService implements RouteServiceImpl {
     private final RouteGuideRepository routeGuideRepository;
     private final RoutePathRepository routePathRepository;
     private final RouteSectionRepository routeSectionRepository;
+    private final RouteLocationNameRepository routeLocationNameRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
 
     @Override
@@ -41,6 +37,16 @@ public class RouteService implements RouteServiceImpl {
         String start = requestDto.getStart();
         String goal = requestDto.getGoal();
         String wayPoints = requestDto.getWayPoints();
+        String locateName = requestDto.getLocateName();
+        String[][] locationCodes = parseLocation(start,goal,wayPoints);
+
+        for (String[] locationCode : locationCodes) {
+            for (String code : locationCode) {
+                System.out.println(code);
+            }
+        }
+
+        List<String> locationNames = List.of(locateName.split(","));
 
         System.out.println("조회하려는 userId : " + userId);
         User user = userRepository.findById(userId)
@@ -56,14 +62,18 @@ public class RouteService implements RouteServiceImpl {
             throw new RuntimeException("route안에 traoptimal이 없음");
         }
 
-        RouteSummaryRespDto routeSummaryRespDto = RouteSummaryRespDto.from(tra);
-        RouteSummary newSummary = RouteMapper.toEntity(routeSummaryRespDto);
-        newSummary.setUser(user);
-
+        RouteSummaryRespDto routeSummaryRespDto = RouteSummaryRespDto.from(tra, locationNames, locationCodes);
+        
+        // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
         if(user.getSummary() != null) {
-            updateRouteSummary(user.getSummary().getId(), newSummary);
+            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes);
+            user.setSummary(updatedSummary);
+            userRepository.save(user);
         } else {
+            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes);
+            newSummary.setUser(user);
             user.setSummary(newSummary);
+            routeSummaryRepository.save(newSummary);
             userRepository.save(user);
         }
 
@@ -71,32 +81,235 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional
-    public RouteSummary updateRouteSummary(Long userId, RouteSummary routeSummary) {
-        RouteSummary existing = routeSummaryRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("RouteSummary not found"));
+    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes) {
+        // 1단계: 기존 경로 데이터 삭제
+        deleteUserRoute(summaryId, user);
+        
+        // 2단계: 새로운 경로 데이터 생성
+        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes);
+        
+        // 3단계: User 엔티티 업데이트
+        user.setSummary(newSummary);
+        userRepository.save(user);
+        
+        return newSummary;
+    }
+    
+    @Transactional
+    public void deleteUserRoute(Long summaryId, User user) {
+        // 기존 summary와 관련된 모든 데이터를 삭제
+        RouteSummary existingSummary = routeSummaryRepository.findById(summaryId)
+                .orElseThrow(() -> new EntityNotFoundException("기존 경로 요약을 찾을 수 없습니다."));
+        
+        System.out.println("삭제 전 - existingSummary ID: " + existingSummary.getId() + ", User ID: " + existingSummary.getUser().getId());
+        
+        // JPQL을 사용하여 데이터베이스에서 직접 삭제
+        System.out.println("연관 엔티티 삭제 시작");
+        
+        // RouteGuide 삭제
+        routeGuideRepository.deleteBySummaryId(summaryId);
+        System.out.println("RouteGuide 삭제 완료");
+        
+        // RoutePath 삭제
+        routePathRepository.deleteBySummaryId(summaryId);
+        System.out.println("RoutePath 삭제 완료");
+        
+        // RouteSection 삭제
+        routeSectionRepository.deleteBySummaryId(summaryId);
+        System.out.println("RouteSection 삭제 완료");
+        
+        // RouteLocationName 삭제
+        routeLocationNameRepository.deleteBySummaryId(summaryId);
+        System.out.println("RouteLocationName 삭제 완료");
+        
+        // 이제 summary 삭제
+        routeSummaryRepository.deleteById(summaryId);
+        
+        // 즉시 데이터베이스에 반영
+        System.out.println("flush 시도");
+        routeSummaryRepository.flush();
+        System.out.println("flush 완료");
+        
+        // User에서 기존 summary 참조 제거 (save는 호출하지 않음)
+        user.setSummary(null);
+        
+        System.out.println("삭제 및 참조 제거 완료");
+        
+        // 삭제 확인을 위한 상세한 검증
+        System.out.println("=== 삭제 검증 시작 ===");
+        
+        // 1. RouteSummary 삭제 확인
+        try {
+            RouteSummary checkSummary = routeSummaryRepository.findById(summaryId).orElse(null);
+            if (checkSummary == null) {
+                System.out.println("✅ RouteSummary 삭제 확인됨: ID " + summaryId + "가 존재하지 않음");
+            } else {
+                System.out.println("❌ RouteSummary 삭제 실패: ID " + summaryId + "가 여전히 존재함");
+                System.out.println("   - Summary 정보: " + checkSummary.getId() + ", User ID: " + checkSummary.getUser().getId());
+            }
+        } catch (Exception e) {
+            System.out.println("❌ RouteSummary 삭제 확인 중 에러: " + e.getMessage());
+        }
+        
+        // 2. RouteGuide 삭제 확인
+        try {
+            List<RouteGuide> remainingGuides = routeGuideRepository.findRouteGuideBySummaryId(summaryId);
+            if (remainingGuides.isEmpty()) {
+                System.out.println("✅ RouteGuide 삭제 확인됨: Summary ID " + summaryId + "에 대한 가이드가 없음");
+            } else {
+                System.out.println("❌ RouteGuide 삭제 실패: " + remainingGuides.size() + "개의 가이드가 여전히 존재함");
+                remainingGuides.forEach(guide -> System.out.println("   - Guide ID: " + guide.getId()));
+            }
+        } catch (Exception e) {
+            System.out.println("❌ RouteGuide 삭제 확인 중 에러: " + e.getMessage());
+        }
+        
+        // 3. RoutePath 삭제 확인
+        try {
+            List<RoutePath> remainingPaths = routePathRepository.findRoutePathBySummaryId(summaryId);
+            if (remainingPaths.isEmpty()) {
+                System.out.println("✅ RoutePath 삭제 확인됨: Summary ID " + summaryId + "에 대한 경로가 없음");
+            } else {
+                System.out.println("❌ RoutePath 삭제 실패: " + remainingPaths.size() + "개의 경로가 여전히 존재함");
+                remainingPaths.forEach(path -> System.out.println("   - Path ID: " + path.getId()));
+            }
+        } catch (Exception e) {
+            System.out.println("❌ RoutePath 삭제 확인 중 에러: " + e.getMessage());
+        }
+        
+        // 4. RouteSection 삭제 확인
+        try {
+            List<RouteSection> remainingSections = routeSectionRepository.findRouteSectionBySummaryId(summaryId);
+            if (remainingSections.isEmpty()) {
+                System.out.println("✅ RouteSection 삭제 확인됨: Summary ID " + summaryId + "에 대한 구간이 없음");
+            } else {
+                System.out.println("❌ RouteSection 삭제 실패: " + remainingSections.size() + "개의 구간이 여전히 존재함");
+                remainingSections.forEach(section -> System.out.println("   - Section ID: " + section.getId()));
+            }
+        } catch (Exception e) {
+            System.out.println("❌ RouteSection 삭제 확인 중 에러: " + e.getMessage());
+        }
+        
+        // 5. RouteLocationName 삭제 확인
+        try {
+            List<RouteLocationName> remainingLocations = routeLocationNameRepository.findRouteLocationNameBySummaryId(summaryId);
+            if (remainingLocations.isEmpty()) {
+                System.out.println("✅ RouteLocationName 삭제 확인됨: Summary ID " + summaryId + "에 대한 위치명이 없음");
+            } else {
+                System.out.println("❌ RouteLocationName 삭제 실패: " + remainingLocations.size() + "개의 위치명이 여전히 존재함");
+                remainingLocations.forEach(location -> System.out.println("   - Location ID: " + location.getId()));
+            }
+        } catch (Exception e) {
+            System.out.println("❌ RouteLocationName 삭제 확인 중 에러: " + e.getMessage());
+        }
+        
+        // 6. User의 summary 참조 확인
+        try {
+            User checkUser = userRepository.findById(user.getId()).orElse(null);
+            if (checkUser != null && checkUser.getSummary() == null) {
+                System.out.println("✅ User summary 참조 제거 확인됨: User ID " + user.getId() + "의 summary가 null");
+            } else if (checkUser != null && checkUser.getSummary() != null) {
+                System.out.println("❌ User summary 참조 제거 실패: User ID " + user.getId() + "의 summary가 여전히 존재함 - ID: " + checkUser.getSummary().getId());
+            } else {
+                System.out.println("❌ User 조회 실패");
+            }
+        } catch (Exception e) {
+            System.out.println("❌ User summary 참조 확인 중 에러: " + e.getMessage());
+        }
+        
+        System.out.println("=== 삭제 검증 완료 ===");
+    }
+    
+    @Transactional
+    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes) {
+        // 새로운 summary 생성 및 저장
+        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes);
+        newSummary.setUser(user);
+        return routeSummaryRepository.save(newSummary);
+    }
+    
+    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes) {
+        RouteSummary routeSummary = RouteSummary.builder()
+                .departureTime(routeSummaryRespDto.getDepartureTime())
+                .distance(routeSummaryRespDto.getDistance())
+                .duration(routeSummaryRespDto.getDuration())
+                .fuelPrice(routeSummaryRespDto.getFuelPrice())
+                .taxiFare(routeSummaryRespDto.getTaxiFare())
+                .tollFare(routeSummaryRespDto.getTollFare())
+                .startLon(routeSummaryRespDto.getStartLon())
+                .startLat(routeSummaryRespDto.getStartLat())
+                .goalLon(routeSummaryRespDto.getGoalLon())
+                .goalLat(routeSummaryRespDto.getGoalLat())
+                .goalDir(routeSummaryRespDto.getGoalDir())
+                .bboxSwLon(routeSummaryRespDto.getBboxSwLon())
+                .bboxSwLat(routeSummaryRespDto.getBboxSwLat())
+                .bboxNeLon(routeSummaryRespDto.getBboxNeLon())
+                .bboxNeLat(routeSummaryRespDto.getBboxNeLat())
+                .build();
 
-        // summary 필드 업데이트
-        existing.update(routeSummary);
+        routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
+            RouteGuide routeGuide = RouteGuide.builder()
+                    .sequenceNum(guideDto.getSequenceNum())
+                    .distance(guideDto.getDistance())
+                    .duration(guideDto.getDuration())
+                    .instructions(guideDto.getInstructions())
+                    .pointIndex(guideDto.getPointIndex())
+                    .type(guideDto.getType())
+                    .build();
+            routeSummary.addRouteGuide(routeGuide);
+        });
 
-        routeSummary.getRouteGuides().forEach(guide -> guide.setSummary(existing));
-        routeSummary.getRouteSections().forEach(section -> section.setSummary(existing));
-        routeSummary.getRoutePaths().forEach(path -> path.setSummary(existing));
+        routeSummaryRespDto.getRouteSections().forEach(sectionDto -> {
+            RouteSection routeSection = RouteSection.builder()
+                    .sequenceNum(sectionDto.getSequenceNum())
+                    .name(sectionDto.getName())
+                    .congestion(sectionDto.getCongestion())
+                    .distance(sectionDto.getDistance())
+                    .speed(sectionDto.getSpeed())
+                    .pointCount(sectionDto.getPointCount())
+                    .pointIndex(sectionDto.getPointIndex())
+                    .build();
+            routeSummary.addRouteSection(routeSection);
+        });
 
-        // 기존 guide, section, path 컬렉션 클리어 후 새 데이터 세팅
-        existing.getRouteGuides().clear();
-        existing.getRouteGuides().addAll(routeSummary.getRouteGuides());
+        routeSummaryRespDto.getRoutePaths().forEach(pathDto -> {
+            RoutePath routePath = RoutePath.builder()
+                    .sequenceNum(pathDto.getSequenceNum())
+                    .lon(pathDto.getLon())
+                    .lat(pathDto.getLat())
+                    .build();
+            routeSummary.addRoutePathPoint(routePath);
+        });
 
-        existing.getRouteSections().clear();
-        existing.getRouteSections().addAll(routeSummary.getRouteSections());
+        IntStream.range(0, locationNames.size())
+                .forEach(i -> {
+                    String name = locationNames.get(i).trim();
+                    String type = "";
 
-        existing.getRoutePaths().clear();
-        existing.getRoutePaths().addAll(routeSummary.getRoutePaths());
+                    if(i == 0) type = "Start";
+                    else if(i == locationNames.size() - 1) type = "Goal";
+                    else type = "WayPoint";
 
-        return routeSummaryRepository.save(existing);
+                    System.out.println(name + " / " + type);
+
+                    RouteLocationName routeLocationName = RouteLocationName.builder()
+                            .name(name)
+                            .type(type)
+                            .lon(locationCodes[i][0])
+                            .lat(locationCodes[i][1])
+                            .sequenceNum(i+1)
+                            .build();
+
+                    routeSummary.addRouteLocationName(routeLocationName);
+                });
+        
+        return routeSummary;
     }
 
     public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
-        List<RouteGuide> routeGuides = routeGuideRepository.findBySummary_User_id(userId);
+        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+        List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryId(routeSummary.getId());
 
         return IntStream.range(0, routeGuides.size())
                 .mapToObj(i -> RouteGuideRespDto.fromEntity(routeGuides.get(i), i))
@@ -104,7 +317,10 @@ public class RouteService implements RouteServiceImpl {
     }
 
     public List<RoutePathRespDto> getPathByUserId(Long userId) {
-        List<RoutePath> routePaths = routePathRepository.findBySummary_User_id(userId);
+        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+
+        List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryId(routeSummary.getId());
 
         return IntStream.range(0, routePaths.size())
                 .mapToObj(i -> RoutePathRespDto.fromEntity(routePaths.get(i), i))
@@ -112,10 +328,87 @@ public class RouteService implements RouteServiceImpl {
     }
 
     public List<RouteSectionRespDto> getSectionByUserId(Long userId) {
-        List<RouteSection> routeSections = routeSectionRepository.findBySummary_User_id(userId);
+        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+
+        List<RouteSection> routeSections = routeSectionRepository.findRouteSectionBySummaryId(routeSummary.getId());
 
         return IntStream.range(0, routeSections.size())
                 .mapToObj(i -> RouteSectionRespDto.fromEntity(routeSections.get(i), i))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public RouteSummaryRespDto getRouteSummaryByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(()-> new EntityNotFoundException("사용자 없음"));
+
+        RouteSummary summary = user.getSummary();
+        if(summary == null) {
+            throw new EntityNotFoundException("해당 유저의 이전 길찾기 기록이 없음");
+        }
+
+        // 가이드 변환
+        List<RouteGuideRespDto> guides = IntStream.range(0, summary.getRouteGuides().size())
+                .mapToObj(i -> RouteGuideRespDto.fromEntity(summary.getRouteGuides().get(i), i))
+                .collect(Collectors.toList());
+
+        // 경로 포인트 변환
+        List<RoutePathRespDto> paths = IntStream.range(0, summary.getRoutePaths().size())
+                .mapToObj(i -> RoutePathRespDto.fromEntity(summary.getRoutePaths().get(i), i))
+                .collect(Collectors.toList());
+
+        // 구간 변환
+        List<RouteSectionRespDto> sections = IntStream.range(0, summary.getRouteSections().size())
+                .mapToObj(i -> RouteSectionRespDto.fromEntity(summary.getRouteSections().get(i), i))
+                .collect(Collectors.toList());
+
+        // 위치 이름 변환
+        List<RouteLocationNameRespDto> locationNames = IntStream.range(0, summary.getRouteLocationNames().size())
+                .mapToObj(i -> RouteLocationNameRespDto.fromEntity(summary.getRouteLocationNames().get(i), i))
+                .collect(Collectors.toList());
+
+        RouteSummaryRespDto dto = RouteSummaryRespDto.builder()
+                .departureTime(summary.getDepartureTime())
+                .distance(summary.getDistance())
+                .duration(summary.getDuration())
+                .fuelPrice(summary.getFuelPrice())
+                .taxiFare(summary.getTaxiFare())
+                .tollFare(summary.getTollFare())
+                .startLon(summary.getStartLon())
+                .startLat(summary.getStartLat())
+                .goalLon(summary.getGoalLon())
+                .goalLat(summary.getGoalLat())
+                .goalDir(summary.getGoalDir())
+                .bboxSwLon(summary.getBboxSwLon())
+                .bboxSwLat(summary.getBboxSwLat())
+                .bboxNeLon(summary.getBboxNeLon())
+                .bboxNeLat(summary.getBboxNeLat())
+                .routeGuides(guides)
+                .routePaths(paths)
+                .routeSections(sections)
+                .routeLocations(locationNames)
+                .build();
+
+        return dto;
+    }
+
+    private String[][] parseLocation(String start, String goal, String wayPoints) {
+        List<String[]> locationCodes = new ArrayList<>();
+
+        locationCodes.add(start.split(","));
+
+        if (wayPoints != null && !wayPoints.trim().isEmpty()) {
+            String[] wayPointArray = wayPoints.split("\\|");
+            for (String wayPoint : wayPointArray) {
+                if (!wayPoint.trim().isEmpty()) {
+                    locationCodes.add(wayPoint.split(","));
+                }
+            }
+        }
+
+        locationCodes.add(goal.split(","));
+
+        return locationCodes.toArray(new String[0][]);
     }
 }

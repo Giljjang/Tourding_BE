@@ -102,6 +102,21 @@ public class RouteController {
         return routeService.getRoute(requestDto);
     }
 
+    @GetMapping
+    @Operation(
+            summary = "사용자 ID로 전체 경로 조회",
+            description = "사용자의 가장 최근 길찾기 안내 경로를 조회합니다."
+    )
+    public RouteSummaryRespDto getRoute(
+            @Parameter(
+                    description = "사용자 id",
+                    required = true
+            )
+            @RequestParam Long userId
+    ) {
+        return routeService.getRouteSummaryByUserId(userId);
+    }
+
     @GetMapping("/guide")
     @Operation(
         summary = "사용자 ID로 경로 안내 조회",

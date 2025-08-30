@@ -1,13 +1,7 @@
 package com.example.tourding.external.naver;
 
-import com.example.tourding.direction.dto.RouteGuideRespDto;
-import com.example.tourding.direction.dto.RoutePathRespDto;
-import com.example.tourding.direction.dto.RouteSectionRespDto;
-import com.example.tourding.direction.dto.RouteSummaryRespDto;
-import com.example.tourding.direction.entity.RouteGuide;
-import com.example.tourding.direction.entity.RoutePath;
-import com.example.tourding.direction.entity.RouteSection;
-import com.example.tourding.direction.entity.RouteSummary;
+import com.example.tourding.direction.dto.*;
+import com.example.tourding.direction.entity.*;
 
 import java.util.List;
 
@@ -48,14 +42,20 @@ public class RouteMapper {
                 .map(RouteMapper::toPathPointEntity)
                 .toList();
 
+        List<RouteLocationName> locations = dto.getRouteLocations().stream()
+                .map(RouteMapper::toLocationNameEntity)
+                .toList();
+
         // 연관관계 설정
         guides.forEach(g -> g.setSummary(summary));
         sections.forEach(s -> s.setSummary(summary));
         pathPoints.forEach(p -> p.setSummary(summary));
+        locations.forEach(l -> l.setSummary(summary));
 
         summary.setRouteGuides(guides);
         summary.setRouteSections(sections);
         summary.setRoutePaths(pathPoints);
+        summary.setRouteLocationNames(locations);
 
         return summary;
     }
@@ -87,6 +87,14 @@ public class RouteMapper {
         return RoutePath.builder()
                 .lat(dto.getLat())
                 .lon(dto.getLon())
+                .sequenceNum(dto.getSequenceNum())
+                .build();
+    }
+
+    private static RouteLocationName toLocationNameEntity(RouteLocationNameRespDto dto) {
+        return RouteLocationName.builder()
+                .name(dto.getName())
+                .type(dto.getType())
                 .sequenceNum(dto.getSequenceNum())
                 .build();
     }
