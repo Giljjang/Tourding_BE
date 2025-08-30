@@ -23,12 +23,10 @@ public class KakaoClient {
     @Value("${kakao.client.kakaoAK}")
     private String kakaoAK;
 
-    public KakaoSearchResponse kakaoSearchConvenience(String x, String y, String radius) {
+    public KakaoSearchResponse kakaoSearchConvenience(String x, String y, String radius, String query) {
         try {
-            KakaoSearchResponse toiletResponse = kakaoSearch(x, y, radius, "화장실");
-            KakaoSearchResponse convenienceResponse = kakaoSearch(x, y, radius, "편의점");
 
-            return combineResponses(toiletResponse, convenienceResponse);
+            return kakaoSearch(x, y, radius, query);
 
         } catch (CustomException exception) {
             throw exception;

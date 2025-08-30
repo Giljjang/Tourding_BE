@@ -17,12 +17,12 @@ import java.util.stream.Collectors;
 public class KakaoApiService {
     private final KakaoClient kakaoClient;
 
-    public List<KakaoSearchRespDto> getKakaoSearchResults(KakaoSearchReqDto kakaoSearchReqDto) {
+    public List<KakaoSearchRespDto> getKakaoSearch(KakaoSearchReqDto kakaoSearchReqDto, String query) {
         String lat = kakaoSearchReqDto.getLat();
         String lon = kakaoSearchReqDto.getLon();
         String radius = kakaoSearchReqDto.getRadius();
 
-        KakaoSearchResponse kakaoSearchResponse = kakaoClient.kakaoSearchConvenience(lon, lat, radius);
+        KakaoSearchResponse kakaoSearchResponse = kakaoClient.kakaoSearchConvenience(lon, lat, radius, query);
 
         List<KakaoSearchResponse.Document> documents = kakaoSearchResponse.getDocuments();
         if(documents == null) {
@@ -30,25 +30,11 @@ public class KakaoApiService {
         }
 
         return documents.stream()
-                .map(document -> {
-                    String type = "";
-                    String categoryName = document.getCategory_name();
-                    
-                    if (categoryName != null) {
-                        if (categoryName.contains("편의점")) {
-                            type = "0";
-                        } else if (categoryName.contains("화장실")) {
-                            type = "1";
-                        }
-                    }
-                    
-                    return KakaoSearchRespDto.builder()
+                .map(document -> KakaoSearchRespDto.builder()
                             .name(document.getPlace_name())
                             .lat(document.getY())
                             .lon(document.getX())
-                            .type(type)
-                            .build();
-                })
+                            .build())
                 .collect(Collectors.toList());
     }
 }

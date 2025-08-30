@@ -18,13 +18,21 @@ public class KakaoController {
 
     private final KakaoApiService kakaoApiService;
 
-    @PostMapping("/convenience")
+    @PostMapping("/convenience-store")
     @Operation(
-            summary = "사용자의 현재 좌표를 입력받아서 근처 편의시설 정보를 리턴",
-            description = "lon : 경도, lat: 위도 radius : 검색 반경 (m)단위 최대 20000 20km임" +
-                    "type은 0 : 편의점, 1 : 화장실"
+            summary = "사용자의 현재 좌표를 입력받아서 근처 편의점 정보를 리턴",
+            description = "lon : 경도, lat: 위도 radius : 검색 반경 (m)단위 최대 20000 20km임"
     )
-    public List<KakaoSearchRespDto> kakaoSearch(@RequestBody KakaoSearchReqDto kakaoSearchReqDto) {
-        return kakaoApiService.getKakaoSearchResults(kakaoSearchReqDto);
+    public List<KakaoSearchRespDto> kakaoSearchConvenienceStore(@RequestBody KakaoSearchReqDto kakaoSearchReqDto) {
+        return kakaoApiService.getKakaoSearch(kakaoSearchReqDto,"편의점");
+    }
+
+    @PostMapping("/toilet")
+    @Operation(
+            summary = "사용자의 현재 좌표를 입력받아서 근처 화장실 정보를 리턴",
+            description = "lon : 경도, lat: 위도 radius : 검색 반경 (m)단위 최대 20000 20km임"
+    )
+    public List<KakaoSearchRespDto> kakaoSearchToilet(@RequestBody KakaoSearchReqDto kakaoSearchReqDto) {
+        return kakaoApiService.getKakaoSearch(kakaoSearchReqDto,"화장실");
     }
 }
