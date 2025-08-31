@@ -10,6 +10,7 @@ import lombok.Getter;
 public class DetailInfoRespDto {
     // ===== 공통 필드 =====
     private String contentid;
+    private String typeCode;
     private String contenttypeid;
     private String homepage;
     private String tel;

@@ -31,31 +31,7 @@ public class TourApiController {
     @ApiResponses({
         @ApiResponse(
             responseCode = "200", 
-            description = "검색 성공",
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(
-                    type = "array",
-                    implementation = SearchAreaRespDto.class
-                ),
-                examples = @ExampleObject(
-                    name = "성공 응답 예시",
-                    value = """
-                    [
-                        {
-                            "title": "대구iM뱅크PARK",
-                            "addr1": "대구광역시 북구 고성로 191",
-                            "contentid": "2606238",
-                            "contenttypeid": "28",
-                            "firstimage": "http://tong.visitkorea.or.kr/cms/resource/72/3501372_image2_1.jpg",
-                            "firstimage2": "http://tong.visitkorea.or.kr/cms/resource/72/3501372_image3_1.jpg",
-                            "mapx": "128.5861797933",
-                            "mapy": "35.8830627794"
-                        }
-                    ]
-                    """
-                )
-            )
+            description = "검색 성공"
         ),
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "500", description = "서버 내부 오류")

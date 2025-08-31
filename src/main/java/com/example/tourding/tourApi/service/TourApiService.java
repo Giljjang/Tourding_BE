@@ -67,7 +67,7 @@ public class TourApiService {
                     .map(item -> SearchAreaRespDto.builder()
                             .title(item.getTitle())
                             .addr1(item.getAddr1())
-                            .category(item.getCat1())
+                            .typeCode(item.getCat1())
                             .contentid(item.getContentid())
                             .contenttypeid(item.getContenttypeid())
                             .firstimage(item.getFirstimage())
@@ -99,6 +99,7 @@ public class TourApiService {
         return DetailInfoRespDto.builder()
                 // ===== 공통 필드 =====
                 .contentid(commonItem.getContentid())
+                .typeCode(commonItem.getCat1())
                 .contenttypeid(commonItem.getContenttypeid())
                 .homepage(commonItem.getHomepage())
                 .tel(commonItem.getTel())
