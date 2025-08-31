@@ -107,27 +107,41 @@ public class TourApiService {
                 .overview(commonItem.getOverview())
                 // ===== 12 (관광지) =====
                 .packing(introItem.getPacking())
-                .restdate(introItem.getRestdate())
                 .useseason(introItem.getUseseason())
-                .usetime(introItem.getUsetime())
+                .openInfo(
+                        DetailInfoRespDto.OpenInfo.builder()
+                                .usetime(introItem.getUsetime())
+                                .restdate(introItem.getRestdate())
+                                .build()
+                )
+
                 // ===== 14 (문화시설) =====
                 .infocenterculture(introItem.getInfocenterculture())
-                .parkingculture(introItem.getParkingculture())
-                .parkingfee(introItem.getParkingfee())
                 .restdateculture(introItem.getRestdateculture())
                 .usefee(introItem.getUsefee())
                 .usetimeculture(introItem.getUsetimeculture())
                 .scale(introItem.getScale())
                 .spendtime(introItem.getSpendtime())
+                .parkingInfo(
+                        DetailInfoRespDto.ParkingInfo.builder()
+                                .parkingculture(introItem.getParkingculture())
+                                .parkingfee(introItem.getParkingfee())
+                                .build()
+                )
+
                 // ===== 15 (행사/공연/축제) =====
                 .bookingplace(introItem.getBookingplace())
                 .discountinfofestival(introItem.getDiscountinfofestival())
-                .eventenddate(introItem.getEventenddate())
                 .eventplace(introItem.getEventplace())
-                .eventstartdate(introItem.getEventstartdate())
                 .playtime(introItem.getPlaytime())
                 .program(introItem.getProgram())
                 .usetimefestival(introItem.getUsetimefestival())
+                .festivalDurationInfo(
+                        DetailInfoRespDto.FestivalDurationInfo.builder()
+                                .eventstartdate(introItem.getEventstartdate())
+                                .eventenddate(introItem.getEventenddate())
+                                .build()
+                )
 
                 // ===== 25 (여행코스) =====
                 .distance(introItem.getDistance())
@@ -137,41 +151,60 @@ public class TourApiService {
                 .theme(introItem.getTheme())
 
                 // ===== 28 (레포츠) =====
-                .openperiod(introItem.getOpenperiod())
-                .parkingfeeleports(introItem.getParkingfeeleports())
-                .parkingleports(introItem.getParkingleports())
                 .reservation(introItem.getReservation())
-                .restdateleports(introItem.getRestdateleports())
                 .scaleleports(introItem.getScaleleports())
                 .usefeeleports(introItem.getUsefeeleports())
-                .usetimeleports(introItem.getUsetimeleports())
+                .leportsOpenInfo(
+                        DetailInfoRespDto.LeportsOpenInfo.builder()
+                                .openperiod(introItem.getOpenperiod())
+                                .restdateleports(introItem.getRestdateleports())
+                                .usetimeleports(introItem.getUsetimeleports())
+                                .build()
+                )
+                .leportsParkingInfo(
+                        DetailInfoRespDto.LeportsParkingInfo.builder()
+                                .parkingfeeleports(introItem.getParkingfeeleports())
+                                .parkingleports(introItem.getParkingleports())
+                                .build()
+                )
 
                 // ===== 32 (숙박) =====
-                .checkintime(introItem.getCheckintime())
-                .checkouttime(introItem.getCheckouttime())
                 .parkinglodging(introItem.getParkinglodging())
                 .reservationurl(introItem.getReservationurl())
                 .barbecue(introItem.getBarbecue())
                 .bicycle(introItem.getBicycle())
                 .campfire(introItem.getCampfire())
                 .refundregulation(introItem.getRefundregulation())
+                .checkInOutInfo(
+                        DetailInfoRespDto.CheckInOutInfo.builder()
+                                .checkintime(introItem.getCheckintime())
+                                .checkouttime(introItem.getCheckouttime())
+                                .build()
+                )
 
                 // ===== 38 (쇼핑) =====
                 .infocentershopping(introItem.getInfocentershopping())
-                .opendateshopping(introItem.getOpendateshopping())
-                .opentime(introItem.getOpentime())
                 .parkingshopping(introItem.getParkingshopping())
-                .restdateshopping(introItem.getRestdateshopping())
                 .restroom(introItem.getRestroom())
                 .shopguide(introItem.getShopguide())
+                .storeOpenInfo(
+                        DetailInfoRespDto.StoreOpenInfo.builder()
+                                .opendateshopping(introItem.getOpendateshopping())
+                                .opentime(introItem.getOpentime())
+                                .restdateshopping(introItem.getRestdateshopping())
+                                .build()
+                )
 
                 // ===== 39 (음식점) =====
-                .opendatefood(introItem.getOpendatefood())
-                .opentimefood(introItem.getOpentimefood())
                 .packing(introItem.getPacking())
                 .parkingfood(introItem.getParkingfood())
                 .treatmenu(introItem.getTreatmenu())
-
+                .foodOpenInfo(
+                        DetailInfoRespDto.FoodOpenInfo.builder()
+                                .opentimefood(introItem.getOpentimefood())
+                                .opendatefood(introItem.getOpendatefood())
+                                .build()
+                )
                 .build();
     }
 
