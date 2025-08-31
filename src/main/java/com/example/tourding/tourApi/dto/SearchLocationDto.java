@@ -11,4 +11,5 @@ public class SearchLocationDto {
     String mapX;
     String mapY;
     String radius;
+    String category; // 관광지 코드
 }
