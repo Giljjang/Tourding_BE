@@ -66,6 +66,7 @@ public class TourApiService {
                     .map(item -> SearchAreaRespDto.builder()
                             .title(item.getTitle())
                             .addr1(item.getAddr1())
+                            .category(item.getCat1())
                             .contentid(item.getContentid())
                             .contenttypeid(item.getContenttypeid())
                             .firstimage(item.getFirstimage())
