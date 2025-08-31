@@ -9,6 +9,7 @@ import com.example.tourding.user.entity.User;
 import com.example.tourding.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import java.util.Collections;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -191,46 +192,50 @@ public class RouteService implements RouteServiceImpl {
     }
 
     public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
-        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
-        List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryId(routeSummary.getId());
-
-        return IntStream.range(0, routeGuides.size())
-                .mapToObj(i -> RouteGuideRespDto.fromEntity(routeGuides.get(i), i))
-                .collect(Collectors.toList());
+        return routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .map(summary -> {
+                    List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryId(summary.getId());
+                    return IntStream.range(0, routeGuides.size())
+                            .mapToObj(i -> RouteGuideRespDto.fromEntity(routeGuides.get(i), i))
+                            .collect(Collectors.toList());
+                })
+                .orElse(Collections.emptyList());
     }
 
     public List<RoutePathRespDto> getPathByUserId(Long userId) {
-        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+        return routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .map(summary -> {
+                    List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryId(summary.getId());
+                    return IntStream.range(0, routePaths.size())
+                            .mapToObj(i -> RoutePathRespDto.fromEntity(routePaths.get(i), i))
+                            .collect(Collectors.toList());
 
-        List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryId(routeSummary.getId());
-
-        return IntStream.range(0, routePaths.size())
-                .mapToObj(i -> RoutePathRespDto.fromEntity(routePaths.get(i), i))
-                .collect(Collectors.toList());
+                })
+                .orElse(Collections.emptyList());
     }
 
     public List<RouteSectionRespDto> getSectionByUserId(Long userId) {
-        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
+        return routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .map(summary -> {
+                    List<RouteSection> routeSections = routeSectionRepository.findRouteSectionBySummaryId(summary.getId());
+                    return IntStream.range(0, routeSections.size())
+                            .mapToObj(i -> RouteSectionRespDto.fromEntity(routeSections.get(i), i))
+                            .collect(Collectors.toList());
+                })
+                .orElse(Collections.emptyList());
 
-        List<RouteSection> routeSections = routeSectionRepository.findRouteSectionBySummaryId(routeSummary.getId());
 
-        return IntStream.range(0, routeSections.size())
-                .mapToObj(i -> RouteSectionRespDto.fromEntity(routeSections.get(i), i))
-                .collect(Collectors.toList());
     }
 
     public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
-        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
-
-        List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryId(routeSummary.getId());
-
-        return IntStream.range(0, routeLocationNames.size())
-                .mapToObj(i -> RouteLocationNameRespDto.fromEntity(routeLocationNames.get(i), i))
-                .collect(Collectors.toList());
+        return routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .map(summary -> {
+                    List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryId(summary.getId());
+                    return IntStream.range(0, routeLocationNames.size())
+                            .mapToObj(i -> RouteLocationNameRespDto.fromEntity(routeLocationNames.get(i), i))
+                            .collect(Collectors.toList());
+                })
+                .orElse(Collections.emptyList());
     }
 
     @Transactional
@@ -240,7 +245,12 @@ public class RouteService implements RouteServiceImpl {
 
         RouteSummary summary = user.getSummary();
         if(summary == null) {
-            throw new EntityNotFoundException("해당 유저의 이전 길찾기 기록이 없음");
+            return RouteSummaryRespDto.builder()
+                    .routeGuides(Collections.emptyList())
+                    .routePaths(Collections.emptyList())
+                    .routeSections(Collections.emptyList())
+                    .routeLocations(Collections.emptyList())
+                    .build();
         }
 
         // 가이드 변환
