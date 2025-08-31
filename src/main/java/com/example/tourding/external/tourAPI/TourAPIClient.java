@@ -37,8 +37,8 @@ public class TourAPIClient {
         return callApi(url, SearchAreaResponse.class);
     }
 
-    public SearchAreaResponse searchLocationDto(int pageNum, String mapX, String mapY, String radius) {
-        String url = createUrl("/locationBasedList2", pageNum, mapX, mapY, radius);
+    public SearchAreaResponse searchLocationDto(int pageNum, String mapX, String mapY, String radius, String typeCode) {
+        String url = createUrl("/locationBasedList2", pageNum, mapX, mapY, radius, typeCode);
         return callApi(url, SearchAreaResponse.class);
     }
 
@@ -106,8 +106,8 @@ public class TourAPIClient {
         return createUrl(path, 0, null, 0, null, contentId, contentTypeId,null,null,null,null);
     }
 
-    private String createUrl(String path, int pageNum, String mapX, String mapY, String radius) { // 사용자 위치기반 검색 API 주소 생성
-        return createUrl(path, pageNum, null, 0, null,null,null,mapX,mapY,radius,"E");
+    private String createUrl(String path, int pageNum, String mapX, String mapY, String radius, String typeCode) { // 사용자 위치기반 검색 API 주소 생성
+        return createUrl(path, pageNum, typeCode, 0, null,null,null,mapX,mapY,radius,"E");
     }
 
     private <T> T callApi(String urlString, Class<T> responseType) {

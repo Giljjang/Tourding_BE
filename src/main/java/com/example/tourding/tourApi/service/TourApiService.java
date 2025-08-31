@@ -44,8 +44,9 @@ public class TourApiService {
         String mapX = searchLocationReqDto.getMapX();
         String mapY = searchLocationReqDto.getMapY();
         String radius = searchLocationReqDto.getRadius();
+        String typeCode = searchLocationReqDto.getCategory();
 
-        SearchAreaResponse response = tourAPIClient.searchLocationDto(pageNum, mapX, mapY, radius);
+        SearchAreaResponse response = tourAPIClient.searchLocationDto(pageNum, mapX, mapY, radius, typeCode);
         return praseDto(response);
     }
 
@@ -66,6 +67,7 @@ public class TourApiService {
                     .map(item -> SearchAreaRespDto.builder()
                             .title(item.getTitle())
                             .addr1(item.getAddr1())
+                            .category(item.getCat1())
                             .contentid(item.getContentid())
                             .contenttypeid(item.getContenttypeid())
                             .firstimage(item.getFirstimage())

@@ -51,6 +51,7 @@ public class SearchAreaResponse {
     public static class Item {
         private String title; // 장소 이름
         private String addr1; // 장소 주소
+        private String cat1; // 관광지 타입 코드
         private String contentid; // 장소 고유 id
         private String contenttypeid; // 장소 고유 카테고리 id
         private String firstimage; // 장소 이미지1
