@@ -45,7 +45,7 @@ public class RouteSummaryRespDto {
     @Builder.Default
     private List<RouteLocationNameRespDto> routeLocations = new ArrayList<>();
 
-    public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra, List<String> locationNames, String[][] locationCodes) {
+    public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
         var summary = tra.getSummary();
 
         List<RouteGuideRespDto> guideDtos = new ArrayList<>();
@@ -74,9 +74,12 @@ public class RouteSummaryRespDto {
                     String name = locationNames.get(i).trim();
                     String type = i == 0? "Start" :
                             i == locationNames.size() - 1 ? "Goal" : "WayPoint";
+                    String typeCode = i == 0? "" :
+                            i == locationNames.size() -1 ? "" : typeCodes.get(i);
                     return RouteLocationNameRespDto.builder()
                             .name(name)
                             .type(type)
+                            .typeCode(typeCode)
                             .lon(locationCodes[i][0])
                             .lat(locationCodes[i][1])
                             .sequenceNum(i)

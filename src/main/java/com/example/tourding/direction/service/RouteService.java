@@ -39,9 +39,11 @@ public class RouteService implements RouteServiceImpl {
         String goal = requestDto.getGoal();
         String wayPoints = requestDto.getWayPoints();
         String locateName = requestDto.getLocateName();
+        String typeCode = requestDto.getTypeCode();
         String[][] locationCodes = parseLocation(start,goal,wayPoints);
 
         List<String> locationNames = List.of(locateName.split(","));
+        List<String> typeCodes = List.of(typeCode.split(","));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
@@ -56,15 +58,15 @@ public class RouteService implements RouteServiceImpl {
             throw new RuntimeException("route안에 traoptimal이 없음");
         }
 
-        RouteSummaryRespDto routeSummaryRespDto = RouteSummaryRespDto.from(tra, locationNames, locationCodes);
+        RouteSummaryRespDto routeSummaryRespDto = RouteSummaryRespDto.from(tra, locationNames, locationCodes, typeCodes);
         
         // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
         if(user.getSummary() != null) {
-            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes);
+            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes, typeCodes);
             user.setSummary(updatedSummary);
             userRepository.save(user);
         } else {
-            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes);
+            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes, typeCodes);
             newSummary.setUser(user);
             user.setSummary(newSummary);
             routeSummaryRepository.save(newSummary);
@@ -75,12 +77,12 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional
-    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes) {
+    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes) {
         // 1단계: 기존 경로 데이터 삭제
         deleteUserRoute(summaryId, user);
         
         // 2단계: 새로운 경로 데이터 생성
-        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes);
+        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes, typeCodes);
         
         // 3단계: User 엔티티 업데이트
         user.setSummary(newSummary);
@@ -106,14 +108,14 @@ public class RouteService implements RouteServiceImpl {
     }
     
     @Transactional
-    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes) {
+    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes) {
         // 새로운 summary 생성 및 저장
-        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes);
+        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes, typeCodes);
         newSummary.setUser(user);
         return routeSummaryRepository.save(newSummary);
     }
     
-    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes) {
+    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
         RouteSummary routeSummary = RouteSummary.builder()
                 .departureTime(routeSummaryRespDto.getDepartureTime())
                 .distance(routeSummaryRespDto.getDistance())
@@ -175,11 +177,13 @@ public class RouteService implements RouteServiceImpl {
                     else if(i == locationNames.size() - 1) type = "Goal";
                     else type = "WayPoint";
 
-
+                    String typeCode = i == 0? "" :
+                            i == locationNames.size() -1 ? "" : typeCodes.get(i);
 
                     RouteLocationName routeLocationName = RouteLocationName.builder()
                             .name(name)
                             .type(type)
+                            .typeCode(typeCode)
                             .lon(locationCodes[i][0])
                             .lat(locationCodes[i][1])
                             .sequenceNum(i+1)
