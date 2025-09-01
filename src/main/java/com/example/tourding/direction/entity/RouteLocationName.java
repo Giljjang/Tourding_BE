@@ -18,6 +18,7 @@ public class RouteLocationName {
     private String lat; // 위도
     private String name;
     private String type;
+    private String typeCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "summary_id", nullable = false)

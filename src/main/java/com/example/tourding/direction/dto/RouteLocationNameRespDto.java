@@ -15,6 +15,7 @@ public class RouteLocationNameRespDto {
     private Integer sequenceNum; // 순서 보존용
     private String name;
     private String type;
+    private String typeCode;
     private String lon;
     private String lat;
 
