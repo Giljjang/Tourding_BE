@@ -178,7 +178,7 @@ public class RouteService implements RouteServiceImpl {
                     else type = "WayPoint";
 
                     String typeCode = i == 0? "" :
-                            i == locationNames.size() -1 ? "" : typeCodes.get(i);
+                            i == locationNames.size() -1 ? "" : typeCodes.get(i-1);
 
                     RouteLocationName routeLocationName = RouteLocationName.builder()
                             .name(name)
