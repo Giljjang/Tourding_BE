@@ -25,6 +25,7 @@ public class RouteLocationNameRespDto {
                 .type(routeLocationName.getType())
                 .lon(routeLocationName.getLon())
                 .lat(routeLocationName.getLat())
+                .typeCode(routeLocationName.getTypeCode())
                 .sequenceNum(index)
                 .build();
     }

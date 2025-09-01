@@ -75,7 +75,7 @@ public class RouteSummaryRespDto {
                     String type = i == 0? "Start" :
                             i == locationNames.size() - 1 ? "Goal" : "WayPoint";
                     String typeCode = i == 0? "" :
-                            i == locationNames.size() -1 ? "" : typeCodes.get(i);
+                            i == locationNames.size() -1 ? "" : typeCodes.get(i-1);
                     return RouteLocationNameRespDto.builder()
                             .name(name)
                             .type(type)
