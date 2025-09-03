@@ -45,7 +45,7 @@ public class RouteSummaryRespDto {
     @Builder.Default
     private List<RouteLocationNameRespDto> routeLocations = new ArrayList<>();
 
-    public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
+    public static RouteSummaryRespDto from(ApiRouteResponse.Traavoidcaronly tra, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
         var summary = tra.getSummary();
 
         List<RouteGuideRespDto> guideDtos = new ArrayList<>();
