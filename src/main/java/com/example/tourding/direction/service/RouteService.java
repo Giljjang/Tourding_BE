@@ -134,9 +134,19 @@ public class RouteService implements RouteServiceImpl {
                 .bboxNeLat(routeSummaryRespDto.getBboxNeLat())
                 .build();
 
+        RouteGuide startGuide = RouteGuide.builder()
+                .sequenceNum(0)
+                .distance(0)
+                .duration(0)
+                .instructions("출발지")
+                .pointIndex(0)
+                .type(0)
+                .build();
+        routeSummary.addRouteGuide(startGuide);
+
         routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
             RouteGuide routeGuide = RouteGuide.builder()
-                    .sequenceNum(guideDto.getSequenceNum())
+                    .sequenceNum(guideDto.getSequenceNum()+1)
                     .distance(guideDto.getDistance())
                     .duration(guideDto.getDuration())
                     .instructions(guideDto.getInstructions())
