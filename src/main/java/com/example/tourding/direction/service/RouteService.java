@@ -62,11 +62,11 @@ public class RouteService implements RouteServiceImpl {
         
         // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
         if(user.getSummary() != null) {
-            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes, typeCodes);
+            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes, typeCodes, start);
             user.setSummary(updatedSummary);
             userRepository.save(user);
         } else {
-            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes, typeCodes);
+            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes, typeCodes, start);
             newSummary.setUser(user);
             user.setSummary(newSummary);
             routeSummaryRepository.save(newSummary);
@@ -77,12 +77,12 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional
-    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes) {
+    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes, String start) {
         // 1단계: 기존 경로 데이터 삭제
         deleteUserRoute(summaryId, user);
         
         // 2단계: 새로운 경로 데이터 생성
-        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes, typeCodes);
+        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes, typeCodes, start);
         
         // 3단계: User 엔티티 업데이트
         user.setSummary(newSummary);
@@ -108,14 +108,16 @@ public class RouteService implements RouteServiceImpl {
     }
     
     @Transactional
-    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes) {
+    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes, String start) {
         // 새로운 summary 생성 및 저장
-        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes, typeCodes);
+        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes, typeCodes, start);
         newSummary.setUser(user);
         return routeSummaryRepository.save(newSummary);
     }
     
-    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
+    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes, String start) {
+        String[] codes = start.split(",");
+
         RouteSummary routeSummary = RouteSummary.builder()
                 .departureTime(routeSummaryRespDto.getDepartureTime())
                 .distance(routeSummaryRespDto.getDistance())
@@ -141,6 +143,8 @@ public class RouteService implements RouteServiceImpl {
                 .instructions("출발지")
                 .pointIndex(0)
                 .type(0)
+                .lon(codes[0])
+                .lat(codes[1])
                 .build();
         routeSummary.addRouteGuide(startGuide);
 
@@ -151,6 +155,8 @@ public class RouteService implements RouteServiceImpl {
                     .duration(guideDto.getDuration())
                     .instructions(guideDto.getInstructions())
                     .pointIndex(guideDto.getPointIndex())
+                    .lat(guideDto.getLat())
+                    .lon(guideDto.getLon())
                     .type(guideDto.getType())
                     .build();
             routeSummary.addRouteGuide(routeGuide);

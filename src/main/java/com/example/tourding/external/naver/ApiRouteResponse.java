@@ -54,6 +54,8 @@ public class ApiRouteResponse {
         private int distance;
         private int duration;
         private String instructions;
+        private String lon; // 경도
+        private String lat; // 위도
         private int pointIndex;
         private int type;
     }

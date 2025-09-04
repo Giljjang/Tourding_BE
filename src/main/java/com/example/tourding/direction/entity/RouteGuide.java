@@ -21,6 +21,8 @@ public class RouteGuide {
     private String instructions; // 경로 안내 문구
     private Integer pointIndex; // 경로를 구성하는 좌표의 인덱스
     private Integer type; // 분기점 안내 타입
+    private String lon; // 경도
+    private String lat; // 위도
     // 타입 설명은 아래에
     // https://api.ncloud-docs.com/docs/ai-naver-mapsdirections-driving#%EB%B6%84%EA%B8%B0%EC%A0%90%EC%95%88%EB%82%B4%EC%BD%94%EB%93%9C
 
