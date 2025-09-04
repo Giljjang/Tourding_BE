@@ -19,6 +19,8 @@ public class RouteGuideRespDto {
     private String instructions; // 경로 안내 문구
     private Integer pointIndex; // 경로를 구성하는 좌표의 인덱스
     private Integer type; // 분기점 안내 타입
+    private String lon; // 경도
+    private String lat; // 위도
 
     public static RouteGuideRespDto from(ApiRouteResponse.Guide guide, int sequenceNum) {
         return RouteGuideRespDto.builder()
@@ -27,6 +29,8 @@ public class RouteGuideRespDto {
                 .instructions(guide.getInstructions())
                 .pointIndex(guide.getPointIndex())
                 .type(guide.getType())
+                .lon(guide.getLon())
+                .lat(guide.getLat())
                 .sequenceNum(sequenceNum)
                 .build();
     }
@@ -37,6 +41,8 @@ public class RouteGuideRespDto {
                 .duration(guide.getDuration())
                 .instructions(guide.getInstructions())
                 .pointIndex(guide.getPointIndex())
+                .lon(guide.getLon())
+                .lat(guide.getLat())
                 .sequenceNum(sequenceNum)
                 .type(guide.getType())
                 .build();

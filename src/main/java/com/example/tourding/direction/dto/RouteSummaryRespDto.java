@@ -8,6 +8,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Getter
@@ -66,6 +68,19 @@ public class RouteSummaryRespDto {
         if (tra.getPath() != null && !tra.getPath().isEmpty()) {
             for(int i=0; i<tra.getPath().size(); i++) {
                 pathDtos.add(RoutePathRespDto.from(tra.getPath().get(i), i));
+            }
+        }
+
+        if(!guideDtos.isEmpty() && !pathDtos.isEmpty()) {
+            Map<Integer, RoutePathRespDto> pathDtoMap = pathDtos.stream()
+                    .collect(Collectors.toMap(RoutePathRespDto::getSequenceNum, p->p));
+
+            for(RouteGuideRespDto guideRespDto : guideDtos) {
+                RoutePathRespDto routePathDto = pathDtoMap.get(guideRespDto.getPointIndex());
+                if(routePathDto != null) {
+                    guideRespDto.setLat(routePathDto.getLat());
+                    guideRespDto.setLon(routePathDto.getLon());
+                }
             }
         }
 
