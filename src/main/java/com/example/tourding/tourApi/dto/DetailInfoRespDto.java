@@ -20,6 +20,8 @@ public class DetailInfoRespDto {
     private String firstimage2;
     private String address;
     private String overview;
+    private String lon;
+    private String lat;
 
     // ===== 12 (관광지) =====
     private String parking;    // 주차시설
