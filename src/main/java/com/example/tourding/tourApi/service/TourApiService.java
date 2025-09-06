@@ -108,6 +108,9 @@ public class TourApiService {
                 .firstimage2(commonItem.getFirstimage2())
                 .address(address)
                 .overview(commonItem.getOverview())
+                .title(commonItem.getTitle())
+                .lat(commonItem.getMapy())
+                .lon(commonItem.getMapx())
                 // ===== 12 (관광지) =====
                 .packing(introItem.getPacking())
                 .useseason(introItem.getUseseason())
