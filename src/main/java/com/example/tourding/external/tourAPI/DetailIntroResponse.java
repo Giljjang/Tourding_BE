@@ -9,7 +9,6 @@ import java.util.List;
 
 @Getter
 @JsonIgnoreProperties(ignoreUnknown = true)
-
 public class DetailIntroResponse {
     private Response response;
 
@@ -39,6 +38,7 @@ public class DetailIntroResponse {
     }
 
     @Getter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Item {
         private String chkpetculture;
         private String eventhomepage;
