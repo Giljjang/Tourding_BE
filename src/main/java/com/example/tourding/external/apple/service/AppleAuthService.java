@@ -11,7 +11,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -25,11 +24,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
-import static org.springframework.security.oauth2.jwt.JoseHeaderNames.KID;
-
 @Service
 @RequiredArgsConstructor
-@Component
 
 public class AppleAuthService {
     @Value("${apple.bundle_id}")
@@ -40,6 +36,9 @@ public class AppleAuthService {
 
     @Value("${apple.private_key}")
     private String PRIVATE_KEY;
+
+    @Value("${apple.key_id}")
+    private String KID;
 
     public PrivateKey loadPrivateKey() throws Exception {
         String privateKey = PRIVATE_KEY
@@ -72,6 +71,9 @@ public class AppleAuthService {
         HttpEntity<MultiValueMap<String, String>> httpEntity = new HttpEntity<>(params, headers);
         try {
             ResponseEntity<AppleAuthTokenResponseDto> response = restTemplate.postForEntity(authUrl, httpEntity, AppleAuthTokenResponseDto.class);
+            if(!response.getStatusCode().is2xxSuccessful()) {
+                throw new CustomException(RouteApiCode.APPLE_WITHDRAW_FAILED);
+            }
             return response.getBody();
         } catch (HttpClientErrorException e) {
             System.out.println(e);
@@ -104,7 +106,7 @@ public class AppleAuthService {
             LinkedMultiValueMap<String, String> params = new LinkedMultiValueMap<>();
             params.add("client_id", BUNDLEID);
             params.add("client_secret", createClientSecret());
-            params.add("token", appleAuthToken.getAccessToken());
+            params.add("token", appleAuthToken.getRefresh_token());
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
