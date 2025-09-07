@@ -32,7 +32,7 @@ import static org.springframework.security.oauth2.jwt.JoseHeaderNames.KID;
 @Component
 
 public class AppleAuthService {
-    @Value("${apple.bundleid}")
+    @Value("${apple.bundle_id}")
     private String BUNDLEID;
 
     @Value("${apple.iss}")
