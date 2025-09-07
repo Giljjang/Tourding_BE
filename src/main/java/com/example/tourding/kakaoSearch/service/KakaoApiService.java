@@ -1,13 +1,12 @@
-package com.example.tourding.kakao.service;
+package com.example.tourding.kakaoSearch.service;
 
 import com.example.tourding.external.kakao.KakaoClient;
 import com.example.tourding.external.kakao.KakaoSearchResponse;
-import com.example.tourding.kakao.dto.KakaoSearchReqDto;
-import com.example.tourding.kakao.dto.KakaoSearchRespDto;
+import com.example.tourding.kakaoSearch.dto.KakaoSearchReqDto;
+import com.example.tourding.kakaoSearch.dto.KakaoSearchRespDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 

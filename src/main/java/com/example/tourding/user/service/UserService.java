@@ -1,5 +1,8 @@
 package com.example.tourding.user.service;
 
+import com.example.tourding.direction.entity.RouteSummary;
+import com.example.tourding.direction.repository.RouteSummaryRepository;
+import com.example.tourding.direction.service.RouteService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +23,8 @@ import java.util.List;
 public class UserService implements UserServiceImpl{
 
     private final UserRepository userRepository;
+    private final RouteSummaryRepository routeSummaryRepository;
+    private final RouteService routeService;
 
     public UserResponseDto register(UserCreateReqDto userCreateReqDto) {
         User user = new User(userCreateReqDto.getUsername(), userCreateReqDto.getPassword(), userCreateReqDto.getEmail());
@@ -54,11 +60,16 @@ public class UserService implements UserServiceImpl{
         return toDto(updateUser);
     }
 
+    @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new EntityNotFoundException("[Delete Error] 유저를 찾을 수 없습니다. " + id);
-        }
-        userRepository.deleteById(id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("유저 찾기 실패 : " + id));
+        RouteSummary routeSummary = routeSummaryRepository.findRouteSummaryByUserId(id)
+                .orElseThrow(() -> new EntityNotFoundException("해당 유저의 길찾기 목록이 없음 : " + id));
+
+        routeService.deleteUserRoute(routeSummary.getId(), user);
+
+        userRepository.delete(user);
     }
 
     private UserResponseDto toDto(User user) {
