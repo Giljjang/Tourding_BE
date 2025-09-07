@@ -1,4 +1,4 @@
-package com.example.tourding.kakao.dto;
+package com.example.tourding.kakaoSearch.dto;
 
 import lombok.*;
 

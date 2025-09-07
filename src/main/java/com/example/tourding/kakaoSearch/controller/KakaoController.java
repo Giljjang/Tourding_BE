@@ -1,9 +1,8 @@
-package com.example.tourding.kakao.controller;
+package com.example.tourding.kakaoSearch.controller;
 
-import com.example.tourding.external.kakao.KakaoClient;
-import com.example.tourding.kakao.dto.KakaoSearchReqDto;
-import com.example.tourding.kakao.dto.KakaoSearchRespDto;
-import com.example.tourding.kakao.service.KakaoApiService;
+import com.example.tourding.kakaoSearch.dto.KakaoSearchReqDto;
+import com.example.tourding.kakaoSearch.dto.KakaoSearchRespDto;
+import com.example.tourding.kakaoSearch.service.KakaoApiService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;

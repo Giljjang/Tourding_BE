@@ -1,5 +1,6 @@
 package com.example.tourding.user.controller;
 
+import com.example.tourding.external.apple.service.AppleAuthService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
@@ -7,6 +8,7 @@ import com.example.tourding.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final AppleAuthService appleAuthService;
 
     @Operation(summary = "사용자 생성", description = "새로운 사용자를 등록합니다.")
     @PostMapping("/create")
@@ -52,5 +55,19 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@RequestParam Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/revoke")
+    public ResponseEntity<String> revokeUser(@RequestParam Long userId, @RequestParam("authorizationCode") String authorizationCode) {
+        try {
+            appleAuthService.revoke(authorizationCode);
+
+            userService.deleteUser(userId);
+
+            return ResponseEntity.ok("탈퇴 완료");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("회원 탈퇴 실패" + e.getMessage());
+        }
     }
 }
