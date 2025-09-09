@@ -9,7 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-
+@Table(name = "route_location", schema = "tourding")
 public class RouteLocationName {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
