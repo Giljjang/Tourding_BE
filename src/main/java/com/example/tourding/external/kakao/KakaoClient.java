@@ -1,6 +1,5 @@
 package com.example.tourding.external.kakao;
 
-import com.example.tourding.enums.RouteApiCode;
 import com.example.tourding.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

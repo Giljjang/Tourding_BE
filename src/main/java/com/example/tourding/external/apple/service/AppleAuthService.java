@@ -1,6 +1,6 @@
 package com.example.tourding.external.apple.service;
 
-import com.example.tourding.enums.RouteApiCode;
+import com.example.tourding.enums.ErrorCode;
 import com.example.tourding.exception.CustomException;
 import com.example.tourding.external.apple.dto.AppleAuthTokenResponseDto;
 import io.jsonwebtoken.Jwts;
@@ -72,12 +72,12 @@ public class AppleAuthService {
         try {
             ResponseEntity<AppleAuthTokenResponseDto> response = restTemplate.postForEntity(authUrl, httpEntity, AppleAuthTokenResponseDto.class);
             if(!response.getStatusCode().is2xxSuccessful()) {
-                throw new CustomException(RouteApiCode.APPLE_WITHDRAW_FAILED);
+                throw new CustomException(ErrorCode.APPLE_WITHDRAW_FAILED);
             }
             return response.getBody();
         } catch (HttpClientErrorException e) {
             System.out.println(e);
-            throw new CustomException(RouteApiCode.APPLE_WITHDRAW_FAILED);
+            throw new CustomException(ErrorCode.APPLE_WITHDRAW_FAILED);
         }
     }
 

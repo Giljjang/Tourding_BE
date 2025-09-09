@@ -1,6 +1,6 @@
 package com.example.tourding.external.naver;
 
-import com.example.tourding.enums.RouteApiCode;
+import com.example.tourding.enums.ErrorCode;
 import com.example.tourding.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,9 +39,9 @@ public class NaverMapClient {
                     restTemplate.exchange(url, HttpMethod.GET, entity, ApiRouteResponse.class);
 
             ApiRouteResponse responseBody = response.getBody();
-            RouteApiCode code = RouteApiCode.fromCode(responseBody.getCode());
+            ErrorCode code = ErrorCode.fromCode(responseBody.getCode());
 
-            if (code != RouteApiCode.SUCCESS) {
+            if (code != ErrorCode.SUCCESS) {
                 throw new CustomException(code);
             }
 
