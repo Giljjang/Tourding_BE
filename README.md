@@ -1,33 +1,69 @@
 # Tourding Project
 
-## 환경 설정
+## 🚀 자동 배포 시스템
+
+이 프로젝트는 GitHub Actions를 통해 Azure VM에 자동 배포됩니다.
+
+### 📋 배포 정보
+- **서버**: Azure VM
+- **데이터베이스**: Azure SQL Server
+- **배포 브랜치**: main, develop
+- **애플리케이션 URL**: http://[서버IP]:8080
+- **Swagger 문서**: http://[서버IP]:8080/swagger-ui.html
+
+### 🔧 Azure VM 초기 설정
+
+Azure VM에서 다음 스크립트를 실행하여 Docker를 설치하세요:
+
+```bash
+# Azure VM에 접속 후 실행
+curl -fsSL https://raw.githubusercontent.com/your-repo/tourding/main/scripts/setup-azure-server.sh | bash
+```
+
+또는 수동으로 스크립트를 다운로드하여 실행:
+
+```bash
+wget https://raw.githubusercontent.com/your-repo/tourding/main/scripts/setup-azure-server.sh
+chmod +x setup-azure-server.sh
+./setup-azure-server.sh
+```
+
+### 🔑 GitHub Secrets 설정
+
+GitHub 저장소의 Settings > Secrets and variables > Actions에서 다음 시크릿을 설정하세요:
+
+- `AZURE_HOST`: [서버 IP 주소]
+- `AZURE_USER`: [VM 사용자명]
+- `AZURE_SSH_KEY`: [SSH 개인키]
+
+### 🐳 Docker 환경
+
+#### 로컬 개발 환경
+```bash
+# 환경변수 파일 복사
+cp env.example .env
+
+# Docker Compose로 실행
+docker-compose up -d
+```
+
+#### 프로덕션 환경
+- GitHub Actions가 자동으로 Azure VM에 배포
+- `env.example` 파일이 자동으로 `.env`로 복사됨
+- SQL Server 데이터베이스 연결
+
+## 🛠️ 로컬 개발 환경 설정
 
 ### 1. 환경변수 설정
 
-프로젝트를 실행하기 전에 다음 환경변수들을 설정해야 합니다:
-
-```bash
-# API 키
-export NAVER_CLIENT_ID=your_naver_client_id_here
-export NAVER_CLIENT_SECRET=your_naver_client_secret_here
-export TOUR_CLIENT_SERVICEKEY=your_tour_api_key_here
-
-# 데이터베이스 설정
-export DATABASE_URL=jdbc:mysql://localhost:3306/tourding?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8&useUnicode=true
-export DATABASE_USERNAME=admin
-export DATABASE_PASSWORD=your_password_here
-```
-
-### 2. 환경변수 파일 생성 (권장)
-
-프로젝트 루트에 `.env` 파일을 생성하고 위의 환경변수들을 설정하세요:
+프로젝트 루트에 `.env` 파일을 생성하세요:
 
 ```bash
 cp env.example .env
 # .env 파일을 편집하여 실제 값들을 입력
 ```
 
-### 3. 실행 방법
+### 2. 실행 방법
 
 #### 로컬 실행
 ```bash

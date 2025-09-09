@@ -1,26 +1,40 @@
 services:
-  app:
+  tourding-app:
     build: .
     container_name: tourding-app
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_APPLICATION_NAME=tourding
-      - SPRING_DATASOURCE_URL=jdbc:mysql://${RDS_HOST}:${RDS_PORT}/${RDS_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-      - SPRING_DATASOURCE_USERNAME=${RDS_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${RDS_PASSWORD}
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_DATASOURCE_URL=${SQL_SERVER_URL}
+      - SPRING_DATASOURCE_USERNAME=${SQL_SERVER_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SQL_SERVER_PASSWORD}
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=${SQL_SERVER_DRIVER}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=true
-      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQL8Dialect
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=${SQL_SERVER_DIALECT}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
       - TOUR_CLIENT_SERVICEKEY=${TOUR_CLIENT_SERVICEKEY}
-      - SWAGGER_SERVER_URL=http://43.203.246.49
+      - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL}
       - KAKAO_CLIENT_KAKAOAK=${KAKAO_CLIENT_KAKAOAK}
       - APPLE_KEY_ID=${APPLE_KEY_ID}
       - APPLE_ISS=${APPLE_ISS}
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - tourding-network
+
+networks:
+  tourding-network:
+    driver: bridge
