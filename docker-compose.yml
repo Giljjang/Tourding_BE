@@ -1,5 +1,5 @@
 services:
-  tourding-app:
+  app:
     build: .
     container_name: tourding-app
     ports:
@@ -26,15 +26,3 @@ services:
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - tourding-network
-
-networks:
-  tourding-network:
-    driver: bridge

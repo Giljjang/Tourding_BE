@@ -11,13 +11,13 @@ COPY build.gradle .
 COPY settings.gradle .
 
 # 의존성 다운로드 (캐시 레이어 최적화)
-RUN ./gradlew dependencies --no-daemon
+RUN ./gradlew dependencies --no-daemon --parallel
 
 # 소스 코드 복사
 COPY src src
 
 # 애플리케이션 빌드
-RUN ./gradlew build -x test --no-daemon
+RUN ./gradlew build -x test --no-daemon --parallel
 
 # 런타임 이미지
 FROM eclipse-temurin:17-jre

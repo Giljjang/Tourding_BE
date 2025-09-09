@@ -1,8 +1,8 @@
-name: Deploy to Azure VM
+name: Deploy to EC2
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -32,34 +32,25 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew build -x test
       
-    - name: Copy files to Azure VM
+    - name: Copy files to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
-        host: ${{ secrets.AZURE_HOST }}
-        username: ${{ secrets.AZURE_USER }}
-        key: ${{ secrets.AZURE_SSH_KEY }}
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
         source: "."
         target: "~/tourding"
         strip_components: 0
         
-    - name: Deploy to Azure VM
+    - name: Deploy to EC2
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.AZURE_HOST }}
-        username: ${{ secrets.AZURE_USER }}
-        key: ${{ secrets.AZURE_SSH_KEY }}
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          # Azure VM에서 도커 이미지 빌드 및 배포
+          # EC2에서 도커 이미지 빌드
           cd ~/tourding
-          
-          # .env 파일 확인
-          echo "📝 환경변수 파일 확인 중..."
-          if [ -f .env ]; then
-            echo "✅ .env 파일이 존재합니다."
-          else
-            echo "❌ .env 파일이 없습니다. 수동으로 생성해주세요."
-            exit 1
-          fi
           
           # 기존 컨테이너 중지 및 제거
           echo "🔄 기존 컨테이너 정리 중..."
@@ -76,19 +67,9 @@ jobs:
           
           # 배포 상태 확인
           echo "✅ 배포 상태 확인 중..."
-          sleep 15
+          sleep 10
           docker-compose ps
           docker-compose logs --tail=20
-          
-          # 헬스체크
-          echo "🏥 헬스체크 수행 중..."
-          sleep 10
-          if curl -f http://localhost:8080/actuator/health; then
-            echo "✅ 애플리케이션이 정상적으로 실행 중입니다."
-          else
-            echo "⚠️ 헬스체크 실패 - 로그를 확인해주세요."
-            docker-compose logs --tail=50
-          fi
           
           echo "🎉 배포 완료!"
           
@@ -96,9 +77,8 @@ jobs:
       if: always()
       run: |
         if [ ${{ job.status }} == 'success' ]; then
-          echo "✅ 배포 성공! 새로운 이미지가 Azure VM에 배포되었습니다."
-          echo "🌐 애플리케이션 접속: http://${{ secrets.AZURE_HOST }}:8080"
-          echo "📚 Swagger 문서: http://${{ secrets.AZURE_HOST }}:8080/swagger-ui.html"
+          echo "✅ 배포 성공! 새로운 이미지가 EC2에 배포되었습니다."
+          echo "🌐 애플리케이션 접속: http://${{ secrets.EC2_HOST }}:8080"
         else
           echo "❌ 배포 실패! 로그를 확인해주세요."
         fi
