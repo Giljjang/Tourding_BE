@@ -3,7 +3,7 @@ services:
     build: .
     container_name: tourding-app
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # localhost에서만 접근 가능
     env_file:
       - .env
     environment:
