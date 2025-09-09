@@ -9,7 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-
+@Table(name = "route_guide", schema = "tourding")
 public class RouteGuide {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -17,7 +17,7 @@ public class RouteGuide {
     private Integer sequenceNum; // 진행 순서 Open API Response에는 없는거임
     private Integer distance; // 이전 분기점의 경로 구성 좌표 인덱스로부터 해당 분기점의 경로 구성 좌표 인덱스까지의 거리(m)
     private Integer duration; // 이전 분기점의 경로 구성 좌표 인덱스로부터 해당 분기점의 경로 구성 좌표 인덱스까지의 소요 시간 (밀리초)
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "NVARCHAR(MAX)")
     private String instructions; // 경로 안내 문구
     private Integer pointIndex; // 경로를 구성하는 좌표의 인덱스
     private Integer type; // 분기점 안내 타입

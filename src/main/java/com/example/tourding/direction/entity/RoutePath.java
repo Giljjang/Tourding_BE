@@ -9,7 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-
+@Table(name = "route_path", schema = "tourding")
 public class RoutePath { // 경로를 구성하는 모든 좌표 표시
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
