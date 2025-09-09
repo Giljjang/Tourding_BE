@@ -39,9 +39,9 @@ COPY --from=build /app/build/libs/*.jar app.jar
 # JVM 옵션 설정
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
-# 헬스체크 추가
+# 헬스체크 추가 (curl이 없을 수 있으므로 wget 사용)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
 
 # 애플리케이션 실행
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
