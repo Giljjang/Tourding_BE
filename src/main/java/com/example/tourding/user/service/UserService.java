@@ -3,6 +3,8 @@ package com.example.tourding.user.service;
 import com.example.tourding.direction.entity.RouteSummary;
 import com.example.tourding.direction.repository.RouteSummaryRepository;
 import com.example.tourding.direction.service.RouteService;
+import com.example.tourding.enums.ErrorCode;
+import com.example.tourding.exception.CustomException;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
@@ -27,6 +29,10 @@ public class UserService implements UserServiceImpl{
     private final RouteService routeService;
 
     public UserResponseDto register(UserCreateReqDto userCreateReqDto) {
+
+        if (userRepository.findByEmail(userCreateReqDto.getEmail()).isPresent()) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
         User user = new User(userCreateReqDto.getUsername(), userCreateReqDto.getPassword(), userCreateReqDto.getEmail());
         return toDto(userRepository.save(user));
     }

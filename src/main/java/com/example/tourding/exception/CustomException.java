@@ -1,14 +1,20 @@
 package com.example.tourding.exception;
 
-import com.example.tourding.enums.RouteApiCode;
+import com.example.tourding.enums.ErrorCode;
 import lombok.Getter;
 
 @Getter
 public class CustomException extends RuntimeException {
-    private final RouteApiCode code;
+    private final ErrorCode code;
 
-    public CustomException(RouteApiCode code) {
-        super(code.getMessage());
-        this.code = code;
+    public CustomException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.code = errorCode;
     }
+
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+        return this;
+    }
+
 }
