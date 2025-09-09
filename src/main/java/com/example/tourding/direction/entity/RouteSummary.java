@@ -14,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-
+@Table(name = "route_summary", schema = "tourding")
 public class RouteSummary {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

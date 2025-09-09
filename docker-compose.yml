@@ -1,15 +1,16 @@
 services:
-  tourding-app:
+  app:
     build: .
     container_name: tourding-app
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"  # localhost에서만 접근 가능
     env_file:
       - .env
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - SPRING_APPLICATION_NAME=tourding
       - SPRING_DATASOURCE_URL=${SQL_SERVER_URL}
+      - SPRING_DATASOURCE_URL_OPTIONS=characterEncoding=UTF-8;useUnicode=true
       - SPRING_DATASOURCE_USERNAME=${SQL_SERVER_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SQL_SERVER_PASSWORD}
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=${SQL_SERVER_DRIVER}
@@ -26,15 +27,3 @@ services:
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    networks:
-      - tourding-network
-
-networks:
-  tourding-network:
-    driver: bridge
