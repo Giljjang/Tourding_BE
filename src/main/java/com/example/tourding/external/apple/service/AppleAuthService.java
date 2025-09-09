@@ -5,6 +5,7 @@ import com.example.tourding.exception.CustomException;
 import com.example.tourding.external.apple.dto.AppleAuthTokenResponseDto;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -26,7 +27,7 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
-
+@Slf4j
 public class AppleAuthService {
     @Value("${apple.bundle_id}")
     private String BUNDLEID;
@@ -74,9 +75,10 @@ public class AppleAuthService {
             if(!response.getStatusCode().is2xxSuccessful()) {
                 throw new CustomException(ErrorCode.APPLE_WITHDRAW_FAILED);
             }
+            log.info("Apple Auth Token 요청 성공 : status={}", response.getStatusCode());
             return response.getBody();
         } catch (HttpClientErrorException e) {
-            System.out.println(e);
+            log.error("Apple Auth Token 요청 실패 : {}", e.getMessage());
             throw new CustomException(ErrorCode.APPLE_WITHDRAW_FAILED);
         }
     }
