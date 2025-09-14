@@ -152,7 +152,7 @@ public class RouteService implements RouteServiceImpl {
         routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
             String locationName = "";
 
-            if ("도착지".equals(guideDto.getInstructions())) {
+            if ("목적지".equals(guideDto.getInstructions())) {
                 locationName = locationNames.get(locationNames.size() - 1);
             }
             RouteGuide routeGuide = RouteGuide.builder()
