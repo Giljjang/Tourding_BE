@@ -141,6 +141,7 @@ public class RouteService implements RouteServiceImpl {
                 .distance(0)
                 .duration(0)
                 .instructions("출발지")
+                .locationName(locationNames.get(0))
                 .pointIndex(0)
                 .type(0)
                 .lon(codes[0])
@@ -149,6 +150,11 @@ public class RouteService implements RouteServiceImpl {
         routeSummary.addRouteGuide(startGuide);
 
         routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
+            String locationName = "";
+
+            if ("도착지".equals(guideDto.getInstructions())) {
+                locationName = locationNames.get(locationNames.size() - 1);
+            }
             RouteGuide routeGuide = RouteGuide.builder()
                     .sequenceNum(guideDto.getSequenceNum()+1)
                     .distance(guideDto.getDistance())
@@ -158,6 +164,7 @@ public class RouteService implements RouteServiceImpl {
                     .lat(guideDto.getLat())
                     .lon(guideDto.getLon())
                     .type(guideDto.getType())
+                    .locationName(locationName)
                     .build();
             routeSummary.addRouteGuide(routeGuide);
         });

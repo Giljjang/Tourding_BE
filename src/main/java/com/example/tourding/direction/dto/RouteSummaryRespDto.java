@@ -53,7 +53,7 @@ public class RouteSummaryRespDto {
         List<RouteGuideRespDto> guideDtos = new ArrayList<>();
         if (tra.getGuide() != null && !tra.getGuide().isEmpty()) {
             for(int i=0; i<tra.getGuide().size(); i++) {
-                guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i));
+                guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i, locationNames));
             }
         }
 
