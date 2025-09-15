@@ -53,7 +53,7 @@ public class RouteService implements RouteServiceImpl {
             throw new RuntimeException("API 응답에 route가 없음");
         }
 
-        var tra = apiRouteResponse.getRoute().getTraavoidcaronly().get(0);
+        var tra = apiRouteResponse.getRoute().getTraoptimal().get(0);
         if(tra == null) {
             throw new RuntimeException("route안에 traoptimal이 없음");
         }
