@@ -15,7 +15,7 @@ public class ApiRouteResponse {
 
     @Getter
     public static class Route {
-        private List<Traoptimal> Traoptimal;
+        private List<Traoptimal> traoptimal;
     }
 
     @Getter
