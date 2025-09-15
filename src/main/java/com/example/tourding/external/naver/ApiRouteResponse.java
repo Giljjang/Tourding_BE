@@ -15,11 +15,11 @@ public class ApiRouteResponse {
 
     @Getter
     public static class Route {
-        private List<Traoptimal> traoptimal;
+        private List<Tracomfort> tracomfort;
     }
 
     @Getter
-    public static class Traoptimal {
+    public static class Tracomfort {
         private Summary summary;
         private List<Guide> guide;
         private List<List<String>> path;
