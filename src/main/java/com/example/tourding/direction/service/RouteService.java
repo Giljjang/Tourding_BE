@@ -25,14 +25,11 @@ import java.util.stream.IntStream;
 
 public class RouteService implements RouteServiceImpl {
     private final ORSCilent orsCilent;
-    private final NaverMapClient naverMapClient;
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
     private final RouteGuideRepository routeGuideRepository;
     private final RoutePathRepository routePathRepository;
-    private final RouteSectionRepository routeSectionRepository;
     private final RouteLocationNameRepository routeLocationNameRepository;
-    private final jakarta.persistence.EntityManager entityManager;
 
 
     @Override
@@ -96,7 +93,6 @@ public class RouteService implements RouteServiceImpl {
 
         routeGuideRepository.deleteBySummaryId(summaryId);
         routePathRepository.deleteBySummaryId(summaryId);
-        routeSectionRepository.deleteBySummaryId(summaryId);
         routeLocationNameRepository.deleteBySummaryId(summaryId);
         routeSummaryRepository.deleteById(summaryId);
 
@@ -116,23 +112,8 @@ public class RouteService implements RouteServiceImpl {
     private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes, String start) {
         String[] codes = start.split(",");
 
-        RouteSummary routeSummary = RouteSummary.builder()
-                .departureTime(routeSummaryRespDto.getDepartureTime())
-                .distance(routeSummaryRespDto.getDistance())
-                .duration(routeSummaryRespDto.getDuration())
-                .fuelPrice(routeSummaryRespDto.getFuelPrice())
-                .taxiFare(routeSummaryRespDto.getTaxiFare())
-                .tollFare(routeSummaryRespDto.getTollFare())
-                .startLon(routeSummaryRespDto.getStartLon())
-                .startLat(routeSummaryRespDto.getStartLat())
-                .goalLon(routeSummaryRespDto.getGoalLon())
-                .goalLat(routeSummaryRespDto.getGoalLat())
-                .goalDir(routeSummaryRespDto.getGoalDir())
-                .bboxSwLon(routeSummaryRespDto.getBboxSwLon())
-                .bboxSwLat(routeSummaryRespDto.getBboxSwLat())
-                .bboxNeLon(routeSummaryRespDto.getBboxNeLon())
-                .bboxNeLat(routeSummaryRespDto.getBboxNeLat())
-                .build();
+        RouteSummary routeSummary = new RouteSummary();
+
 
         RouteGuide startGuide = RouteGuide.builder()
                 .sequenceNum(0)
@@ -177,19 +158,6 @@ public class RouteService implements RouteServiceImpl {
                     .locationName(locationName)
                     .build();
             routeSummary.addRouteGuide(routeGuide);
-        });
-
-        routeSummaryRespDto.getRouteSections().forEach(sectionDto -> {
-            RouteSection routeSection = RouteSection.builder()
-                    .sequenceNum(sectionDto.getSequenceNum())
-                    .name(sectionDto.getName())
-                    .congestion(sectionDto.getCongestion())
-                    .distance(sectionDto.getDistance())
-                    .speed(sectionDto.getSpeed())
-                    .pointCount(sectionDto.getPointCount())
-                    .pointIndex(sectionDto.getPointIndex())
-                    .build();
-            routeSummary.addRouteSection(routeSection);
         });
 
         routeSummaryRespDto.getRoutePaths().forEach(pathDto -> {
@@ -251,19 +219,6 @@ public class RouteService implements RouteServiceImpl {
                 .orElse(Collections.emptyList());
     }
 
-    public List<RouteSectionRespDto> getSectionByUserId(Long userId) {
-        return routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .map(summary -> {
-                    List<RouteSection> routeSections = routeSectionRepository.findRouteSectionBySummaryId(summary.getId());
-                    return IntStream.range(0, routeSections.size())
-                            .mapToObj(i -> RouteSectionRespDto.fromEntity(routeSections.get(i), i))
-                            .collect(Collectors.toList());
-                })
-                .orElse(Collections.emptyList());
-
-
-    }
-
     public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
         return routeSummaryRepository.findRouteSummaryByUserId(userId)
                 .map(summary -> {
@@ -300,35 +255,14 @@ public class RouteService implements RouteServiceImpl {
                 .mapToObj(i -> RoutePathRespDto.fromEntity(summary.getRoutePaths().get(i), i))
                 .collect(Collectors.toList());
 
-        // 구간 변환
-        List<RouteSectionRespDto> sections = IntStream.range(0, summary.getRouteSections().size())
-                .mapToObj(i -> RouteSectionRespDto.fromEntity(summary.getRouteSections().get(i), i))
-                .collect(Collectors.toList());
-
         // 위치 이름 변환
         List<RouteLocationNameRespDto> locationNames = IntStream.range(0, summary.getRouteLocationNames().size())
                 .mapToObj(i -> RouteLocationNameRespDto.fromEntity(summary.getRouteLocationNames().get(i), i))
                 .collect(Collectors.toList());
 
         RouteSummaryRespDto dto = RouteSummaryRespDto.builder()
-                .departureTime(summary.getDepartureTime())
-                .distance(summary.getDistance())
-                .duration(summary.getDuration())
-                .fuelPrice(summary.getFuelPrice())
-                .taxiFare(summary.getTaxiFare())
-                .tollFare(summary.getTollFare())
-                .startLon(summary.getStartLon())
-                .startLat(summary.getStartLat())
-                .goalLon(summary.getGoalLon())
-                .goalLat(summary.getGoalLat())
-                .goalDir(summary.getGoalDir())
-                .bboxSwLon(summary.getBboxSwLon())
-                .bboxSwLat(summary.getBboxSwLat())
-                .bboxNeLon(summary.getBboxNeLon())
-                .bboxNeLat(summary.getBboxNeLat())
                 .routeGuides(guides)
                 .routePaths(paths)
-                .routeSections(sections)
                 .routeLocations(locationNames)
                 .build();
 
@@ -377,6 +311,7 @@ public class RouteService implements RouteServiceImpl {
         List<RouteGuideRespDto> routeGuides = new ArrayList<>();
         int seq = 0;
         var steps = feature.getProperties().getSegments().get(0).getSteps();
+        var coordinates = feature.getGeometry().getCoordinates();
         for (var step : steps) {
             routeGuides.add(RouteGuideRespDto.builder()
                     .sequenceNum(seq++)
@@ -386,14 +321,13 @@ public class RouteService implements RouteServiceImpl {
                     .locationName("-".equals(step.getName()) ? "" : step.getName())
                     .pointIndex(step.getWay_points().get(0))
                     .type(step.getType())
-                    .lon("") // 좌표는 path에서 매핑
-                    .lat("")
+                    .lon(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(0))) // 좌표는 path에서 매핑
+                    .lat(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(1)))
                     .build());
         }
 
         // RoutePathRespDto는 geometry.coordinates 에서 파싱
         List<RoutePathRespDto> routePaths = new ArrayList<>();
-        var coordinates = feature.getGeometry().getCoordinates();
         for (int i = 0; i < coordinates.size(); i++) {
             List<Double> coord = coordinates.get(i); // [lon, lat]
             routePaths.add(RoutePathRespDto.builder()

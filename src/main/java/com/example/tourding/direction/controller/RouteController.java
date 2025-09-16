@@ -103,26 +103,6 @@ public class RouteController {
         return routeService.getPathByUserId(userId);
     }
 
-    @GetMapping("/section")
-    @Operation(
-        summary = "사용자 ID로 경로 구간 조회",
-        description = "특정 사용자의 경로 구간 정보를 조회합니다."
-    )
-    @ApiResponses({
-        @ApiResponse(
-            responseCode = "200", 
-            description = "경로 구간 조회 성공"
-        ),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-        @ApiResponse(responseCode = "404", description = "사용자 또는 경로 정보를 찾을 수 없음")
-    })
-    public List<RouteSectionRespDto> getSection(
-        @Parameter(description = "사용자 ID", required = true, example = "1")
-        @RequestParam Long userId
-    ) {
-        return routeService.getSectionByUserId(userId);
-    }
-
     @GetMapping("/location-name")
     @Operation(
             summary = "사용자 ID로 출발지,경유지,도착지 정보(이름, 위도, 경도, type) 조회",
