@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface RouteGuideRepository extends JpaRepository<RouteGuide, Long> {
-    List<RouteGuide> findRouteGuideBySummaryId(Long summaryId);
+    List<RouteGuide> findRouteGuideBySummaryIdOrderBySequenceNumAsc(Long summaryId);
     
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM RouteGuide rg WHERE rg.summary.id = :summaryId")

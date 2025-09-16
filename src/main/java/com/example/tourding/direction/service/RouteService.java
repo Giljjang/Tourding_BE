@@ -53,7 +53,7 @@ public class RouteService implements RouteServiceImpl {
             throw new RuntimeException("API 응답에 features가 없음");
         }
 
-        RouteSummaryRespDto routeSummaryRespDto = convertORSResponseToRouteSummaryRespDto(orsResponse, start, goal, locationNames, locationCodes, typeCodes);
+        RouteSummaryRespDto routeSummaryRespDto = convertORSResponseToRouteSummaryRespDto(orsResponse, locationNames, locationCodes, typeCodes);
         
         // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
         if(user.getSummary() != null) {
@@ -122,7 +122,7 @@ public class RouteService implements RouteServiceImpl {
                 .instructions("출발지")
                 .locationName(locationNames.get(0))
                 .pointIndex(0)
-                .type(0)
+                .type(11)
                 .lon(codes[0])
                 .lat(codes[1])
                 .build();
@@ -154,7 +154,7 @@ public class RouteService implements RouteServiceImpl {
                     .pointIndex(guideDto.getPointIndex())
                     .lat(guideDto.getLat())
                     .lon(guideDto.getLon())
-                    .type(guideDto.getType())
+                    .type(guideDto.getType() == 11 ? 6 : guideDto.getType())
                     .locationName(locationName)
                     .build();
             routeSummary.addRouteGuide(routeGuide);
@@ -199,7 +199,7 @@ public class RouteService implements RouteServiceImpl {
     public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
         return routeSummaryRepository.findRouteSummaryByUserId(userId)
                 .map(summary -> {
-                    List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryId(summary.getId());
+                    List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryIdOrderBySequenceNumAsc(summary.getId());
                     return IntStream.range(0, routeGuides.size())
                             .mapToObj(i -> RouteGuideRespDto.fromEntity(routeGuides.get(i), i))
                             .collect(Collectors.toList());
@@ -210,7 +210,7 @@ public class RouteService implements RouteServiceImpl {
     public List<RoutePathRespDto> getPathByUserId(Long userId) {
         return routeSummaryRepository.findRouteSummaryByUserId(userId)
                 .map(summary -> {
-                    List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryId(summary.getId());
+                    List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryIdOrderBySequenceNumAsc(summary.getId());
                     return IntStream.range(0, routePaths.size())
                             .mapToObj(i -> RoutePathRespDto.fromEntity(routePaths.get(i), i))
                             .collect(Collectors.toList());
@@ -222,7 +222,7 @@ public class RouteService implements RouteServiceImpl {
     public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
         return routeSummaryRepository.findRouteSummaryByUserId(userId)
                 .map(summary -> {
-                    List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryId(summary.getId());
+                    List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryIdOrderBySequenceNumAsc(summary.getId());
                     return IntStream.range(0, routeLocationNames.size())
                             .mapToObj(i -> RouteLocationNameRespDto.fromEntity(routeLocationNames.get(i), i))
                             .collect(Collectors.toList());
@@ -290,22 +290,12 @@ public class RouteService implements RouteServiceImpl {
 
     private RouteSummaryRespDto convertORSResponseToRouteSummaryRespDto(
             ORSResponse orsResponse,
-            String start,
-            String goal,
             List<String> locationNames,
             String[][] locationCodes,
             List<String> typeCodes) {
 
         // features[0] 기준으로 파싱 어차피 하나밖에 없음
         var feature = orsResponse.getFeatures().get(0);
-        var summary = feature.getProperties().getSummary();
-
-        // bbox
-        List<Double> bbox = orsResponse.getBbox();
-        String bboxSwLon = String.valueOf(bbox.get(0));
-        String bboxSwLat = String.valueOf(bbox.get(1));
-        String bboxNeLon = String.valueOf(bbox.get(2));
-        String bboxNeLat = String.valueOf(bbox.get(3));
 
         // routeGuides 생성 원래 Guide를 segments.steps에서 파싱
         List<RouteGuideRespDto> routeGuides = new ArrayList<>();
@@ -363,25 +353,8 @@ public class RouteService implements RouteServiceImpl {
                         .build()
                 ).collect(Collectors.toList());
 
-        String[] startSplit = start.split(",");
-        String[] goalSplit = goal.split(",");
 
         return RouteSummaryRespDto.builder()
-                .departureTime(java.time.LocalDateTime.now())
-                .distance((int) summary.getDistance())
-                .duration((int) (summary.getDuration() * 1000))
-                .fuelPrice(0)
-                .taxiFare(0)
-                .tollFare(0)
-                .startLon(startSplit[0])
-                .startLat(startSplit[1])
-                .goalLon(goalSplit[0])
-                .goalLat(goalSplit[1])
-                .goalDir(0)
-                .bboxSwLon(bboxSwLon)
-                .bboxSwLat(bboxSwLat)
-                .bboxNeLon(bboxNeLon)
-                .bboxNeLat(bboxNeLat)
                 .routeGuides(routeGuides)
                 .routePaths(routePaths)
                 .routeSections(routeSections)
