@@ -3,6 +3,8 @@ package com.example.tourding.direction.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Getter
 @Setter
@@ -11,8 +13,9 @@ import lombok.*;
 @Builder
 @Table(name = "route_path", schema = "tourding")
 public class RoutePath { // 경로를 구성하는 모든 좌표 표시
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id
+    @Builder.Default
+    private String id = UUID.randomUUID().toString();
 
     private Integer sequenceNum; // path 진행 순서 Open API Response에는 없는거임
     private String lon; // 경도

@@ -1,6 +1,5 @@
 package com.example.tourding.direction.dto;
 
-import com.example.tourding.direction.entity.RouteSection;
 import com.example.tourding.external.naver.ApiRouteResponse;
 import lombok.*;
 
@@ -27,18 +26,6 @@ public class RouteSectionRespDto {
                 .pointIndex(section.getPointIndex())
                 .speed(section.getSpeed())
                 .congestion(section.getCongestion())
-                .sequenceNum(sequenceNum)
-                .build();
-    }
-
-    public static RouteSectionRespDto fromEntity(RouteSection routeSection, int sequenceNum) {
-        return RouteSectionRespDto.builder()
-                .name(routeSection.getName())
-                .distance(routeSection.getDistance())
-                .pointCount(routeSection.getPointCount())
-                .pointIndex(routeSection.getPointIndex())
-                .speed(routeSection.getSpeed())
-                .congestion(routeSection.getCongestion())
                 .sequenceNum(sequenceNum)
                 .build();
     }

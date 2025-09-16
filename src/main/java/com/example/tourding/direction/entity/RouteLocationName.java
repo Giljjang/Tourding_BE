@@ -3,6 +3,8 @@ package com.example.tourding.direction.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.UUID;
+
 @Entity
 @Getter
 @Setter
@@ -11,8 +13,10 @@ import lombok.*;
 @Builder
 @Table(name = "route_location", schema = "tourding")
 public class RouteLocationName {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id
+    @Builder.Default
+    private String id = UUID.randomUUID().toString();
+
     private Integer sequenceNum;
     private String lon; // 경도
     private String lat; // 위도
