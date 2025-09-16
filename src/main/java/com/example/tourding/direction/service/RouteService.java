@@ -163,6 +163,7 @@ public class RouteService implements RouteServiceImpl {
                 locationName = locationNames.get(locationNames.size() - 1);
             } else {
                 instructions = guideDto.getInstructions();
+                locationName = guideDto.getLocationName();
             }
             RouteGuide routeGuide = RouteGuide.builder()
                     .sequenceNum(guideDto.getSequenceNum()+1)
