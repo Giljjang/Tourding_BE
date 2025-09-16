@@ -364,44 +364,17 @@ public class RouteService implements RouteServiceImpl {
         // routeGuides 생성 원래 Guide를 segments.steps에서 파싱
         List<RouteGuideRespDto> routeGuides = new ArrayList<>();
         int seq = 0;
-
-        // 일단 출발지 추가
-        routeGuides.add(RouteGuideRespDto.builder()
-                .sequenceNum(seq++)
-                .distance(0)
-                .duration(0)
-                .instructions("출발지")
-                .locationName(locationNames.get(0))
-                .pointIndex(0)
-                .type(0)
-                .lon(start.split(",")[0])
-                .lat(start.split(",")[1])
-                .build()
-        );
-
-        // 나머지는 돌리면서 마지막 인덱스만 목적지로 처리하기
         var steps = feature.getProperties().getSegments().get(0).getSteps();
-        for (int i = 0; i < steps.size(); i++) {
-            var step = steps.get(i);
-
-            String instructions = step.getInstruction();
-            String locationName = "-".equals(step.getName()) ? "" : step.getName();
-
-            // 마지막 step → 목적지로 치환
-            if (i == steps.size() - 1) {
-                instructions = "목적지";
-                locationName = locationNames.get(locationNames.size() - 1);
-            }
-
+        for (var step : steps) {
             routeGuides.add(RouteGuideRespDto.builder()
                     .sequenceNum(seq++)
                     .distance((int) step.getDistance())
                     .duration((int) (step.getDuration() * 1000))
-                    .instructions(instructions)
-                    .locationName(locationName)
+                    .instructions(step.getInstruction()) // 그대로
+                    .locationName("-".equals(step.getName()) ? "" : step.getName())
                     .pointIndex(step.getWay_points().get(0))
                     .type(step.getType())
-                    .lon("") // 좌표는 path에서 따로 매핑
+                    .lon("") // 좌표는 path에서 매핑
                     .lat("")
                     .build());
         }
