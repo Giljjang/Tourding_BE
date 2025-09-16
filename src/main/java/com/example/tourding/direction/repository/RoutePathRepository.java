@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface RoutePathRepository extends JpaRepository<RoutePath, Long> {
-    List<RoutePath> findRoutePathBySummaryId(Long summaryId);
+    List<RoutePath> findRoutePathBySummaryIdOrderBySequenceNumAsc(Long summaryId);
     
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM RoutePath rp WHERE rp.summary.id = :summaryId")
