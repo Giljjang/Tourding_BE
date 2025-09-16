@@ -14,6 +14,7 @@ import java.util.UUID;
 @Table(name = "route_path", schema = "tourding")
 public class RoutePath { // 경로를 구성하는 모든 좌표 표시
     @Id
+    @Column(name = "id", columnDefinition = "NVARCHAR(36)")
     @Builder.Default
     private String id = UUID.randomUUID().toString();
 
