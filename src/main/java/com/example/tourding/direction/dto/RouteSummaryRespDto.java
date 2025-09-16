@@ -21,8 +21,6 @@ import java.util.stream.IntStream;
 public class RouteSummaryRespDto {
 
     @Builder.Default
-    private List<RouteSectionRespDto> routeSections = new ArrayList<>();
-    @Builder.Default
     private List<RouteGuideRespDto> routeGuides = new ArrayList<>();
     @Builder.Default
     private List<RoutePathRespDto> routePaths = new ArrayList<>();
@@ -36,13 +34,6 @@ public class RouteSummaryRespDto {
         if (tra.getGuide() != null && !tra.getGuide().isEmpty()) {
             for(int i=0; i<tra.getGuide().size(); i++) {
                 guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i, locationNames));
-            }
-        }
-
-        List<RouteSectionRespDto> sectionDtos = new ArrayList<>();
-        if (tra.getSection() != null && !tra.getSection().isEmpty()) {
-            for(int i=0; i<tra.getSection().size(); i++) {
-                sectionDtos.add(RouteSectionRespDto.from(tra.getSection().get(i), i));
             }
         }
 
@@ -87,7 +78,6 @@ public class RouteSummaryRespDto {
 
         return RouteSummaryRespDto.builder()
                 .routeGuides(guideDtos)
-                .routeSections(sectionDtos)
                 .routePaths(pathDtos)
                 .routeLocations(routeLocationNameRespDtos)
                 .build();

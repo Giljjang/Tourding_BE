@@ -14,6 +14,7 @@ import java.util.UUID;
 @Table(name = "route_location", schema = "tourding")
 public class RouteLocationName {
     @Id
+    @Column(name = "id", columnDefinition = "NVARCHAR(36)")
     @Builder.Default
     private String id = UUID.randomUUID().toString();
 
