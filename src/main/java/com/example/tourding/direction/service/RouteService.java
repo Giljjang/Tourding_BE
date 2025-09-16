@@ -111,6 +111,7 @@ public class RouteService implements RouteServiceImpl {
     
     private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes, String start) {
         String[] codes = start.split(",");
+        final int[] locationNameIndex = {1};
 
         RouteSummary routeSummary = new RouteSummary();
 
@@ -131,6 +132,7 @@ public class RouteService implements RouteServiceImpl {
         routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
             String locationName = "";
             String instructions = "";
+            int type = 0;
 
             if (guideDto.getInstructions().contains("Arrive at your destination")) {
                 if (guideDto.getInstructions().contains("right")) {
@@ -140,11 +142,22 @@ public class RouteService implements RouteServiceImpl {
                 } else {
                     instructions = "목적지";
                 }
-
                 locationName = locationNames.get(locationNames.size() - 1);
+            } else if (guideDto.getInstructions().contains("Arrive at")) {
+                if (guideDto.getInstructions().contains("right")) {
+                    instructions = "경유지가 오른쪽에 있습니다.";
+                } else if (guideDto.getInstructions().contains("left")) {
+                    instructions = "경유지가 왼쪽에 있습니다.";
+                } else {
+                    instructions = "경유지";
+                }
+                type = 9;
+                locationName = locationNames.get(locationNameIndex[0]);
+                locationNameIndex[0]++;
             } else {
                 instructions = guideDto.getInstructions();
                 locationName = guideDto.getLocationName();
+                type = guideDto.getType() == 11 ? 6 : guideDto.getType();
             }
             RouteGuide routeGuide = RouteGuide.builder()
                     .sequenceNum(guideDto.getSequenceNum()+1)
@@ -154,7 +167,7 @@ public class RouteService implements RouteServiceImpl {
                     .pointIndex(guideDto.getPointIndex())
                     .lat(guideDto.getLat())
                     .lon(guideDto.getLon())
-                    .type(guideDto.getType() == 11 ? 6 : guideDto.getType())
+                    .type(type)
                     .locationName(locationName)
                     .build();
             routeSummary.addRouteGuide(routeGuide);
@@ -240,7 +253,6 @@ public class RouteService implements RouteServiceImpl {
             return RouteSummaryRespDto.builder()
                     .routeGuides(Collections.emptyList())
                     .routePaths(Collections.emptyList())
-                    .routeSections(Collections.emptyList())
                     .routeLocations(Collections.emptyList())
                     .build();
         }
@@ -300,20 +312,22 @@ public class RouteService implements RouteServiceImpl {
         // routeGuides 생성 원래 Guide를 segments.steps에서 파싱
         List<RouteGuideRespDto> routeGuides = new ArrayList<>();
         int seq = 0;
-        var steps = feature.getProperties().getSegments().get(0).getSteps();
         var coordinates = feature.getGeometry().getCoordinates();
-        for (var step : steps) {
-            routeGuides.add(RouteGuideRespDto.builder()
-                    .sequenceNum(seq++)
-                    .distance((int) step.getDistance())
-                    .duration((int) (step.getDuration() * 1000))
-                    .instructions(step.getInstruction()) // 그대로
-                    .locationName("-".equals(step.getName()) ? "" : step.getName())
-                    .pointIndex(step.getWay_points().get(0))
-                    .type(step.getType())
-                    .lon(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(0))) // 좌표는 path에서 매핑
-                    .lat(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(1)))
-                    .build());
+
+        for (var segment : feature.getProperties().getSegments()) {
+            for (var step : segment.getSteps()) {
+                routeGuides.add(RouteGuideRespDto.builder()
+                        .sequenceNum(seq++)
+                        .distance((int) step.getDistance())
+                        .duration((int) (step.getDuration() * 1000))
+                        .instructions(step.getInstruction())
+                        .locationName("-".equals(step.getName()) ? "" : step.getName())
+                        .pointIndex(step.getWay_points().get(0))
+                        .type(step.getType())
+                        .lon(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(0)))
+                        .lat(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(1)))
+                        .build());
+            }
         }
 
         // RoutePathRespDto는 geometry.coordinates 에서 파싱
@@ -326,21 +340,6 @@ public class RouteService implements RouteServiceImpl {
                     .lat(String.valueOf(coord.get(1)))
                     .build());
         }
-
-        // routeSection은 properties 에서 파싱
-        List<RouteSectionRespDto> routeSections = IntStream.range(0, feature.getProperties().getSegments().size())
-                .mapToObj(i -> {
-                    var seg = feature.getProperties().getSegments().get(i);
-                    return RouteSectionRespDto.builder()
-                            .sequenceNum(i)
-                            .name("구간 " + (i + 1))
-                            .congestion(0)
-                            .distance((int) seg.getDistance())
-                            .speed(0)
-                            .pointCount(seg.getSteps().size())
-                            .pointIndex(0)
-                            .build();
-                }).collect(Collectors.toList());
 
         List<RouteLocationNameRespDto> routeLocations = IntStream.range(0, locationNames.size())
                 .mapToObj(i -> RouteLocationNameRespDto.builder()
@@ -357,7 +356,6 @@ public class RouteService implements RouteServiceImpl {
         return RouteSummaryRespDto.builder()
                 .routeGuides(routeGuides)
                 .routePaths(routePaths)
-                .routeSections(routeSections)
                 .routeLocations(routeLocations)
                 .build();
     }
