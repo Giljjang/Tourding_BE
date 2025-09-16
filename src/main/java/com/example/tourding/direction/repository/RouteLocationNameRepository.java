@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface RouteLocationNameRepository extends JpaRepository<RouteLocationName, Long> {
-    List<RouteLocationName> findRouteLocationNameBySummaryId(Long summaryId);
+    List<RouteLocationName> findRouteLocationNameBySummaryIdOrderBySequenceNumAsc(Long summaryId);
     
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM RouteLocationName rln WHERE rln.summary.id = :summaryId")

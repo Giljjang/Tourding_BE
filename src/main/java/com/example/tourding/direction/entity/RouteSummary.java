@@ -37,6 +37,7 @@ public class RouteSummary {
     private List<RoutePath> routePaths = new ArrayList<>();
 
     @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sequenceNum ASC")
     @Builder.Default
     private List<RouteLocationName> routeLocationNames = new ArrayList<>();
 
