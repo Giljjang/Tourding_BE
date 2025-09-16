@@ -3,11 +3,10 @@ services:
     build: .
     container_name: tourding-app
     ports:
-      - "127.0.0.1:8080:8080"  # localhost에서만 접근 가능
+      - "127.0.0.1:8080:8080"
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=prod
       - SPRING_APPLICATION_NAME=tourding
       - SPRING_DATASOURCE_URL=${SQL_SERVER_URL}
       - SPRING_DATASOURCE_URL_OPTIONS=characterEncoding=UTF-8;useUnicode=true

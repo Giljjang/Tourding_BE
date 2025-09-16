@@ -5,6 +5,8 @@ import com.example.tourding.direction.entity.*;
 import com.example.tourding.direction.repository.*;
 import com.example.tourding.external.naver.ApiRouteResponse;
 import com.example.tourding.external.naver.NaverMapClient;
+import com.example.tourding.external.open_routes_service.ORSCilent;
+import com.example.tourding.external.open_routes_service.ORSResponse;
 import com.example.tourding.user.entity.User;
 import com.example.tourding.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,6 +24,7 @@ import java.util.stream.IntStream;
 @RequiredArgsConstructor
 
 public class RouteService implements RouteServiceImpl {
+    private final ORSCilent orsCilent;
     private final NaverMapClient naverMapClient;
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
@@ -48,17 +51,12 @@ public class RouteService implements RouteServiceImpl {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
 
-        ApiRouteResponse apiRouteResponse = naverMapClient.getDirection(start, goal, wayPoints);
-        if(apiRouteResponse.getRoute() == null) {
-            throw new RuntimeException("API 응답에 route가 없음");
+        ORSResponse orsResponse = orsCilent.getORSDirection(start, goal, wayPoints);
+        if(orsResponse.getFeatures() == null) {
+            throw new RuntimeException("API 응답에 features가 없음");
         }
 
-        var tra = apiRouteResponse.getRoute().getTraoptimal().get(0);
-        if(tra == null) {
-            throw new RuntimeException("route안에 traoptimal이 없음");
-        }
-
-        RouteSummaryRespDto routeSummaryRespDto = RouteSummaryRespDto.from(tra, locationNames, locationCodes, typeCodes);
+        RouteSummaryRespDto routeSummaryRespDto = convertORSResponseToRouteSummaryRespDto(orsResponse, start, goal, locationNames, locationCodes, typeCodes);
         
         // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
         if(user.getSummary() != null) {
@@ -343,4 +341,134 @@ public class RouteService implements RouteServiceImpl {
 
         return locationCodes.toArray(new String[0][]);
     }
+
+    private RouteSummaryRespDto convertORSResponseToRouteSummaryRespDto(
+            ORSResponse orsResponse,
+            String start,
+            String goal,
+            List<String> locationNames,
+            String[][] locationCodes,
+            List<String> typeCodes) {
+
+        // features[0] 기준으로 파싱 어차피 하나밖에 없음
+        var feature = orsResponse.getFeatures().get(0);
+        var summary = feature.getProperties().getSummary();
+
+        // bbox
+        List<Double> bbox = orsResponse.getBbox();
+        String bboxSwLon = String.valueOf(bbox.get(0));
+        String bboxSwLat = String.valueOf(bbox.get(1));
+        String bboxNeLon = String.valueOf(bbox.get(2));
+        String bboxNeLat = String.valueOf(bbox.get(3));
+
+        // routeGuides 생성 원래 Guide를 segments.steps에서 파싱
+        List<RouteGuideRespDto> routeGuides = new ArrayList<>();
+        int seq = 0;
+
+        // 일단 출발지 추가
+        routeGuides.add(RouteGuideRespDto.builder()
+                .sequenceNum(seq++)
+                .distance(0)
+                .duration(0)
+                .instructions("출발지")
+                .locationName(locationNames.get(0))
+                .pointIndex(0)
+                .type(0)
+                .lon(start.split(",")[0])
+                .lat(start.split(",")[1])
+                .build()
+        );
+
+        // 나머지는 돌리면서 마지막 인덱스만 목적지로 처리하기
+        var steps = feature.getProperties().getSegments().get(0).getSteps();
+        for (int i = 0; i < steps.size(); i++) {
+            var step = steps.get(i);
+
+            String instructions = step.getInstruction();
+            String locationName = "-".equals(step.getName()) ? "" : step.getName();
+
+            // 마지막 step → 목적지로 치환
+            if (i == steps.size() - 1) {
+                instructions = "목적지";
+                locationName = locationNames.get(locationNames.size() - 1);
+            }
+
+            routeGuides.add(RouteGuideRespDto.builder()
+                    .sequenceNum(seq++)
+                    .distance((int) step.getDistance())
+                    .duration((int) (step.getDuration() * 1000))
+                    .instructions(instructions)
+                    .locationName(locationName)
+                    .pointIndex(step.getWay_points().get(0))
+                    .type(step.getType())
+                    .lon("") // 좌표는 path에서 따로 매핑
+                    .lat("")
+                    .build());
+        }
+
+        // RoutePathRespDto는 geometry.coordinates 에서 파싱
+        List<RoutePathRespDto> routePaths = new ArrayList<>();
+        var coordinates = feature.getGeometry().getCoordinates();
+        for (int i = 0; i < coordinates.size(); i++) {
+            List<Double> coord = coordinates.get(i); // [lon, lat]
+            routePaths.add(RoutePathRespDto.builder()
+                    .sequenceNum(i)
+                    .lon(String.valueOf(coord.get(0)))
+                    .lat(String.valueOf(coord.get(1)))
+                    .build());
+        }
+
+        // routeSection은 properties 에서 파싱
+        List<RouteSectionRespDto> routeSections = IntStream.range(0, feature.getProperties().getSegments().size())
+                .mapToObj(i -> {
+                    var seg = feature.getProperties().getSegments().get(i);
+                    return RouteSectionRespDto.builder()
+                            .sequenceNum(i)
+                            .name("구간 " + (i + 1))
+                            .congestion(0)
+                            .distance((int) seg.getDistance())
+                            .speed(0)
+                            .pointCount(seg.getSteps().size())
+                            .pointIndex(0)
+                            .build();
+                }).collect(Collectors.toList());
+
+        List<RouteLocationNameRespDto> routeLocations = IntStream.range(0, locationNames.size())
+                .mapToObj(i -> RouteLocationNameRespDto.builder()
+                        .sequenceNum(i + 1)
+                        .name(locationNames.get(i))
+                        .type(i == 0 ? "Start" : (i == locationNames.size() - 1 ? "Goal" : "WayPoint"))
+                        .typeCode(i == 0 ? "" : (i == locationNames.size() - 1 ? "" : typeCodes.get(i - 1)))
+                        .lon(locationCodes[i][0])
+                        .lat(locationCodes[i][1])
+                        .build()
+                ).collect(Collectors.toList());
+
+        String[] startSplit = start.split(",");
+        String[] goalSplit = goal.split(",");
+
+        return RouteSummaryRespDto.builder()
+                .departureTime(java.time.LocalDateTime.now())
+                .distance((int) summary.getDistance())
+                .duration((int) (summary.getDuration() * 1000))
+                .fuelPrice(0)
+                .taxiFare(0)
+                .tollFare(0)
+                .startLon(startSplit[0])
+                .startLat(startSplit[1])
+                .goalLon(goalSplit[0])
+                .goalLat(goalSplit[1])
+                .goalDir(0)
+                .bboxSwLon(bboxSwLon)
+                .bboxSwLat(bboxSwLat)
+                .bboxNeLon(bboxNeLon)
+                .bboxNeLat(bboxNeLat)
+                .routeGuides(routeGuides)
+                .routePaths(routePaths)
+                .routeSections(routeSections)
+                .routeLocations(routeLocations)
+                .build();
+    }
+
+
 }
