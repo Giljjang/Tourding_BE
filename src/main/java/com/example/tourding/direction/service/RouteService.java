@@ -149,15 +149,26 @@ public class RouteService implements RouteServiceImpl {
 
         routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
             String locationName = "";
+            String instructions = "";
 
-            if ("목적지".equals(guideDto.getInstructions())) {
+            if (guideDto.getInstructions().contains("Arrive at your destination")) {
+                if (guideDto.getInstructions().contains("right")) {
+                    instructions = "목적지가 오른쪽에 있습니다.";
+                } else if (guideDto.getInstructions().contains("left")) {
+                    instructions = "목적지가 왼쪽에 있습니다.";
+                } else {
+                    instructions = "목적지";
+                }
+
                 locationName = locationNames.get(locationNames.size() - 1);
+            } else {
+                instructions = guideDto.getInstructions();
             }
             RouteGuide routeGuide = RouteGuide.builder()
                     .sequenceNum(guideDto.getSequenceNum()+1)
                     .distance(guideDto.getDistance())
                     .duration(guideDto.getDuration())
-                    .instructions(guideDto.getInstructions())
+                    .instructions(instructions)
                     .pointIndex(guideDto.getPointIndex())
                     .lat(guideDto.getLat())
                     .lon(guideDto.getLon())
