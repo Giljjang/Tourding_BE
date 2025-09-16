@@ -26,7 +26,7 @@ public class NaverMapClient {
     public ApiRouteResponse getDirection(String start, String goal, String wayPoints) {
         try {
             final String url = "https://maps.apigw.ntruss.com/map-direction/v1/driving" +
-                    "?option=traavoidcaronly" + "&start=" + start + "&goal=" + goal + "&waypoints=" + wayPoints;
+                    "?option=traavoidcaronly|traavoidtoll" + "&start=" + start + "&goal=" + goal + "&waypoints=" + wayPoints;
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-NCP-APIGW-API-KEY-ID", clientId);

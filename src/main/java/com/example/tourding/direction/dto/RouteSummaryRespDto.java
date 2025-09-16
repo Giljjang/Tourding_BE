@@ -47,13 +47,13 @@ public class RouteSummaryRespDto {
     @Builder.Default
     private List<RouteLocationNameRespDto> routeLocations = new ArrayList<>();
 
-    public static RouteSummaryRespDto from(ApiRouteResponse.Traavoidcaronly tra, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
+    public static RouteSummaryRespDto from(ApiRouteResponse.Traoptimal tra, List<String> locationNames, String[][] locationCodes, List<String> typeCodes) {
         var summary = tra.getSummary();
 
         List<RouteGuideRespDto> guideDtos = new ArrayList<>();
         if (tra.getGuide() != null && !tra.getGuide().isEmpty()) {
             for(int i=0; i<tra.getGuide().size(); i++) {
-                guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i));
+                guideDtos.add(RouteGuideRespDto.from(tra.getGuide().get(i), i, locationNames));
             }
         }
 

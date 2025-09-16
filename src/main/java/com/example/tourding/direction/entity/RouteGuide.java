@@ -19,6 +19,7 @@ public class RouteGuide {
     private Integer duration; // 이전 분기점의 경로 구성 좌표 인덱스로부터 해당 분기점의 경로 구성 좌표 인덱스까지의 소요 시간 (밀리초)
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String instructions; // 경로 안내 문구
+    private String locationName; // 장소 이름
     private Integer pointIndex; // 경로를 구성하는 좌표의 인덱스
     private Integer type; // 분기점 안내 타입
     private String lon; // 경도
