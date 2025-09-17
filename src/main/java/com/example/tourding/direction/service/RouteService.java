@@ -142,6 +142,7 @@ public class RouteService implements RouteServiceImpl {
                 } else {
                     instructions = "목적지";
                 }
+                type = 10;
                 locationName = locationNames.get(locationNames.size() - 1);
             } else if (guideDto.getInstructions().contains("Arrive at")) {
                 if (guideDto.getInstructions().contains("right")) {
