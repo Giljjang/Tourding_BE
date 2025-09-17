@@ -19,6 +19,7 @@ public enum ErrorCode{
 
     @Getter
     private final int code;
+
     @Getter
     private final String message;
     private final HttpStatus httpStatus;

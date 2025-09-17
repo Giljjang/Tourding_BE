@@ -94,7 +94,8 @@ public class TourApiService {
         List<DetailIntroResponse.Item> intro = detailIntroResponse.getResponse().getBody().getItems().getItem();
         DetailIntroResponse.Item introItem = common.isEmpty() ? null : intro.get(0);
 
-        String address = commonItem.getAddr1() + commonItem.getAddr2() + " (" + commonItem.getZipcode() + ")";
+        String zipCode = commonItem.getZipcode() != null ? " (" + commonItem.getZipcode() + ")" : "";
+        String address = commonItem.getAddr1() + commonItem.getAddr2() + zipCode;
 
         return DetailInfoRespDto.builder()
                 // ===== 공통 필드 =====

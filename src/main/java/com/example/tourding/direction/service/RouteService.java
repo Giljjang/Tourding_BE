@@ -59,14 +59,13 @@ public class RouteService implements RouteServiceImpl {
         if(user.getSummary() != null) {
             RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes, typeCodes, start);
             user.setSummary(updatedSummary);
-            userRepository.save(user);
         } else {
             RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes, typeCodes, start);
             newSummary.setUser(user);
             user.setSummary(newSummary);
             routeSummaryRepository.save(newSummary);
-            userRepository.save(user);
         }
+        userRepository.save(user);
 
         return routeSummaryRespDto;
     }
@@ -134,7 +133,7 @@ public class RouteService implements RouteServiceImpl {
             String instructions = "";
             int type = 0;
 
-            if (guideDto.getInstructions().contains("Arrive at your destination")) {
+            if (guideDto.getInstructions().contains("Arrive at your destination") && guideDto.getSequenceNum() == routeSummaryRespDto.getRouteGuides().size()-1) {
                 if (guideDto.getInstructions().contains("right")) {
                     instructions = "목적지가 오른쪽에 있습니다.";
                 } else if (guideDto.getInstructions().contains("left")) {
@@ -171,7 +170,9 @@ public class RouteService implements RouteServiceImpl {
                     .type(type)
                     .locationName(locationName)
                     .build();
-            routeSummary.addRouteGuide(routeGuide);
+            if(!(routeGuide.getInstructions().contains("Head") && routeGuide.getType() == 6)) {
+                routeSummary.addRouteGuide(routeGuide);
+            }
         });
 
         routeSummaryRespDto.getRoutePaths().forEach(pathDto -> {
