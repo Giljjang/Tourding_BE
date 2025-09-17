@@ -1,6 +1,5 @@
 package com.example.tourding.direction.dto;
 
-import com.example.tourding.direction.entity.RouteGuide;
 import com.example.tourding.external.naver.ApiRouteResponse;
 import jakarta.persistence.Column;
 import lombok.*;
@@ -43,19 +42,5 @@ public class RouteGuideRespDto {
         }
 
         return builder.build();
-    }
-
-    public static RouteGuideRespDto fromEntity(RouteGuide guide, int sequenceNum) {
-        return RouteGuideRespDto.builder()
-                .distance(guide.getDistance())
-                .duration(guide.getDuration())
-                .instructions(guide.getInstructions())
-                .pointIndex(guide.getPointIndex())
-                .lon(guide.getLon())
-                .lat(guide.getLat())
-                .sequenceNum(sequenceNum)
-                .locationName(guide.getLocationName())
-                .type(guide.getType())
-                .build();
     }
 }

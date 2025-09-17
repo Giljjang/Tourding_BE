@@ -26,37 +26,22 @@ public class RouteSummary {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sequenceNum ASC")
-    @Builder.Default
-    private List<RouteGuide> routeGuides = new ArrayList<>();
+    @Column(nullable = false)
+    private String start;
 
-    @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sequenceNum ASC")
-    @Builder.Default
-    private List<RoutePath> routePaths = new ArrayList<>();
+    @Column(nullable = false)
+    private String goal;
 
-    @OneToMany(mappedBy = "summary", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sequenceNum ASC")
-    @Builder.Default
-    private List<RouteLocationName> routeLocationNames = new ArrayList<>();
+    @Column
+    private String wayPoints; // null 가능
 
-    public void addRouteGuide(RouteGuide routeGuide) {
-        routeGuides.add(routeGuide);
-        routeGuide.setSummary(this);
-    }
+    @Column
+    private String typeCode;
 
-    public void addRoutePathPoint(RoutePath routePath) {
-        routePaths.add(routePath);
-        routePath.setSummary(this);
-    }
+    @Column(nullable = false)
+    private String locateName; // 출발지,경유지,도착지 이름은 ","로 구분해서 들어옴
 
-    public void addRouteLocationName(RouteLocationName routeLocationName) {
-        this.routeLocationNames.add(routeLocationName);
-        routeLocationName.setSummary(this);
-    }
-
-    @PrePersist // 엔티티가 최조 저장되기 직전에 자동으로 호출되어서 createdAt을 자동으로 설정해줌
+    @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
     }

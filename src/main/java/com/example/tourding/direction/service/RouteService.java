@@ -3,8 +3,6 @@ package com.example.tourding.direction.service;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.*;
 import com.example.tourding.direction.repository.*;
-import com.example.tourding.external.naver.ApiRouteResponse;
-import com.example.tourding.external.naver.NaverMapClient;
 import com.example.tourding.external.open_routes_service.ORSCilent;
 import com.example.tourding.external.open_routes_service.ORSResponse;
 import com.example.tourding.user.entity.User;
@@ -27,62 +25,41 @@ public class RouteService implements RouteServiceImpl {
     private final ORSCilent orsCilent;
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
-    private final RouteGuideRepository routeGuideRepository;
-    private final RoutePathRepository routePathRepository;
-    private final RouteLocationNameRepository routeLocationNameRepository;
-
 
     @Override
     public RouteSummaryRespDto getRoute(RouteRequestDto requestDto) {
-        Long userId = requestDto.getUserId();
-        String start = requestDto.getStart();
-        String goal = requestDto.getGoal();
-        String wayPoints = requestDto.getWayPoints();
-        String locateName = requestDto.getLocateName();
-        String typeCode = requestDto.getTypeCode();
-        String[][] locationCodes = parseLocation(start,goal,wayPoints);
-
-        List<String> locationNames = List.of(locateName.split(","));
-        List<String> typeCodes = List.of(typeCode.split(","));
-
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(requestDto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
 
-        ORSResponse orsResponse = orsCilent.getORSDirection(start, goal, wayPoints);
-        if(orsResponse.getFeatures() == null) {
-            throw new RuntimeException("API 응답에 features가 없음");
-        }
+        // OpenAPI 호출해서 Dto 생성
+        ORSResponse orsResponse = orsCilent.getORSDirection(
+                requestDto.getStart(),
+                requestDto.getGoal(),
+                requestDto.getWayPoints()
+        );
+        RouteSummaryRespDto dto = convertORSResponseToRouteSummaryRespDto(
+                orsResponse,
+                List.of(requestDto.getLocateName().split(",")),
+                parseLocation(requestDto.getStart(), requestDto.getGoal(), requestDto.getWayPoints()),
+                List.of(requestDto.getTypeCode().split(","))
+        );
 
-        RouteSummaryRespDto routeSummaryRespDto = convertORSResponseToRouteSummaryRespDto(orsResponse, locationNames, locationCodes, typeCodes);
-        
-        // 사용자의 기존 경로가 있으면 덮어쓰기, 없으면 새로 생성
-        if(user.getSummary() != null) {
-            RouteSummary updatedSummary = replaceUserRoute(user.getSummary().getId(), routeSummaryRespDto, locationNames, user, locationCodes, typeCodes, start);
-            user.setSummary(updatedSummary);
+        RouteSummary summary;
+        if (user.getSummary() != null) {
+            summary = user.getSummary(); // 기존 엔티티 가져오기
         } else {
-            RouteSummary newSummary = createNewRouteSummary(routeSummaryRespDto, locationNames, locationCodes, typeCodes, start);
-            newSummary.setUser(user);
-            user.setSummary(newSummary);
-            routeSummaryRepository.save(newSummary);
+            summary = new RouteSummary();
+            summary.setUser(user);
         }
-        userRepository.save(user);
+        summary.setStart(requestDto.getStart());
+        summary.setGoal(requestDto.getGoal());
+        summary.setWayPoints(requestDto.getWayPoints());
+        summary.setLocateName(requestDto.getLocateName());
+        summary.setTypeCode(requestDto.getTypeCode());
 
-        return routeSummaryRespDto;
-    }
+        routeSummaryRepository.save(summary);
 
-    @Transactional
-    public RouteSummary replaceUserRoute(Long summaryId, RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes, String start) {
-        // 1단계: 기존 경로 데이터 삭제
-        deleteUserRoute(summaryId, user);
-        
-        // 2단계: 새로운 경로 데이터 생성
-        RouteSummary newSummary = createUserRoute(dto, locationNames, user, locationCodes, typeCodes, start);
-        
-        // 3단계: User 엔티티 업데이트
-        user.setSummary(newSummary);
-        userRepository.save(user);
-        
-        return newSummary;
+        return dto;
     }
     
     @Transactional
@@ -90,198 +67,80 @@ public class RouteService implements RouteServiceImpl {
         RouteSummary existingSummary = routeSummaryRepository.findById(summaryId)
                 .orElseThrow(() -> new EntityNotFoundException("기존 경로 요약을 찾을 수 없습니다."));
 
-        routeGuideRepository.deleteBySummaryId(summaryId);
-        routePathRepository.deleteBySummaryId(summaryId);
-        routeLocationNameRepository.deleteBySummaryId(summaryId);
         routeSummaryRepository.deleteById(summaryId);
 
         routeSummaryRepository.flush();
 
         user.setSummary(null);
     }
-    
-    @Transactional
-    public RouteSummary createUserRoute(RouteSummaryRespDto dto, List<String> locationNames, User user, String[][] locationCodes, List<String> typeCodes, String start) {
-        // 새로운 summary 생성 및 저장
-        RouteSummary newSummary = createNewRouteSummary(dto, locationNames,locationCodes, typeCodes, start);
-        newSummary.setUser(user);
-        return routeSummaryRepository.save(newSummary);
-    }
-    
-    private RouteSummary createNewRouteSummary(RouteSummaryRespDto routeSummaryRespDto, List<String> locationNames, String[][] locationCodes, List<String> typeCodes, String start) {
-        String[] codes = start.split(",");
-        final int[] locationNameIndex = {1};
 
-        RouteSummary routeSummary = new RouteSummary();
-
-
-        RouteGuide startGuide = RouteGuide.builder()
-                .sequenceNum(0)
-                .distance(0)
-                .duration(0)
-                .instructions("출발지")
-                .locationName(locationNames.get(0))
-                .pointIndex(0)
-                .type(11)
-                .lon(codes[0])
-                .lat(codes[1])
-                .build();
-        routeSummary.addRouteGuide(startGuide);
-
-        routeSummaryRespDto.getRouteGuides().forEach(guideDto -> {
-            String locationName = "";
-            String instructions = "";
-            int type = 0;
-
-            if (guideDto.getInstructions().contains("Arrive at your destination") && guideDto.getSequenceNum() == routeSummaryRespDto.getRouteGuides().size()-1) {
-                if (guideDto.getInstructions().contains("right")) {
-                    instructions = "목적지가 오른쪽에 있습니다.";
-                } else if (guideDto.getInstructions().contains("left")) {
-                    instructions = "목적지가 왼쪽에 있습니다.";
-                } else {
-                    instructions = "목적지";
-                }
-                type = 10;
-                locationName = locationNames.get(locationNames.size() - 1);
-            } else if (guideDto.getInstructions().contains("Arrive at")) {
-                if (guideDto.getInstructions().contains("right")) {
-                    instructions = "경유지가 오른쪽에 있습니다.";
-                } else if (guideDto.getInstructions().contains("left")) {
-                    instructions = "경유지가 왼쪽에 있습니다.";
-                } else {
-                    instructions = "경유지";
-                }
-                type = 9;
-                locationName = locationNames.get(locationNameIndex[0]);
-                locationNameIndex[0]++;
-            } else {
-                instructions = guideDto.getInstructions();
-                locationName = guideDto.getLocationName();
-                type = guideDto.getType() == 11 ? 6 : guideDto.getType();
-            }
-            RouteGuide routeGuide = RouteGuide.builder()
-                    .sequenceNum(guideDto.getSequenceNum()+1)
-                    .distance(guideDto.getDistance())
-                    .duration(guideDto.getDuration())
-                    .instructions(instructions)
-                    .pointIndex(guideDto.getPointIndex())
-                    .lat(guideDto.getLat())
-                    .lon(guideDto.getLon())
-                    .type(type)
-                    .locationName(locationName)
-                    .build();
-            if(!(routeGuide.getInstructions().contains("Head") && routeGuide.getType() == 6)) {
-                routeSummary.addRouteGuide(routeGuide);
-            }
-        });
-
-        routeSummaryRespDto.getRoutePaths().forEach(pathDto -> {
-            RoutePath routePath = RoutePath.builder()
-                    .sequenceNum(pathDto.getSequenceNum())
-                    .lon(pathDto.getLon())
-                    .lat(pathDto.getLat())
-                    .build();
-            routeSummary.addRoutePathPoint(routePath);
-        });
-
-        IntStream.range(0, locationNames.size())
-                .forEach(i -> {
-                    String name = locationNames.get(i).trim();
-                    String type = "";
-
-                    if(i == 0) type = "Start";
-                    else if(i == locationNames.size() - 1) type = "Goal";
-                    else type = "WayPoint";
-
-                    String typeCode = i == 0? "" :
-                            i == locationNames.size() -1 ? "" : typeCodes.get(i-1);
-
-                    RouteLocationName routeLocationName = RouteLocationName.builder()
-                            .name(name)
-                            .type(type)
-                            .typeCode(typeCode)
-                            .lon(locationCodes[i][0])
-                            .lat(locationCodes[i][1])
-                            .sequenceNum(i+1)
-                            .build();
-
-                    routeSummary.addRouteLocationName(routeLocationName);
-                });
-        
-        return routeSummary;
-    }
-
-    public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
-        return routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .map(summary -> {
-                    List<RouteGuide> routeGuides = routeGuideRepository.findRouteGuideBySummaryIdOrderBySequenceNumAsc(summary.getId());
-                    return IntStream.range(0, routeGuides.size())
-                            .mapToObj(i -> RouteGuideRespDto.fromEntity(routeGuides.get(i), i))
-                            .collect(Collectors.toList());
-                })
-                .orElse(Collections.emptyList());
-    }
-
-    public List<RoutePathRespDto> getPathByUserId(Long userId) {
-        return routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .map(summary -> {
-                    List<RoutePath> routePaths = routePathRepository.findRoutePathBySummaryIdOrderBySequenceNumAsc(summary.getId());
-                    return IntStream.range(0, routePaths.size())
-                            .mapToObj(i -> RoutePathRespDto.fromEntity(routePaths.get(i), i))
-                            .collect(Collectors.toList());
-
-                })
-                .orElse(Collections.emptyList());
-    }
-
-    public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
-        return routeSummaryRepository.findRouteSummaryByUserId(userId)
-                .map(summary -> {
-                    List<RouteLocationName> routeLocationNames = routeLocationNameRepository.findRouteLocationNameBySummaryIdOrderBySequenceNumAsc(summary.getId());
-                    return IntStream.range(0, routeLocationNames.size())
-                            .mapToObj(i -> RouteLocationNameRespDto.fromEntity(routeLocationNames.get(i), i))
-                            .collect(Collectors.toList());
-                })
-                .orElse(Collections.emptyList());
-    }
-
-    @Transactional
+    @Transactional(readOnly = true)
     public RouteSummaryRespDto getRouteSummaryByUserId(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(()-> new EntityNotFoundException("사용자 없음"));
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
 
-        RouteSummary summary = user.getSummary();
-        if(summary == null) {
-            return RouteSummaryRespDto.builder()
-                    .routeGuides(Collections.emptyList())
-                    .routePaths(Collections.emptyList())
-                    .routeLocations(Collections.emptyList())
-                    .build();
-        }
+        ORSResponse orsResponse = orsCilent.getORSDirection(
+                summary.getStart(),
+                summary.getGoal(),
+                summary.getWayPoints()
+        );
 
-        // 가이드 변환
-        List<RouteGuideRespDto> guides = IntStream.range(0, summary.getRouteGuides().size())
-                .mapToObj(i -> RouteGuideRespDto.fromEntity(summary.getRouteGuides().get(i), i))
-                .collect(Collectors.toList());
+        List<String> locationNames = List.of(summary.getLocateName().split(","));
+        String[][] locationCodes = parseLocation(summary.getStart(), summary.getGoal(), summary.getWayPoints());
 
-        // 경로 포인트 변환
-        List<RoutePathRespDto> paths = IntStream.range(0, summary.getRoutePaths().size())
-                .mapToObj(i -> RoutePathRespDto.fromEntity(summary.getRoutePaths().get(i), i))
-                .collect(Collectors.toList());
-
-        // 위치 이름 변환
-        List<RouteLocationNameRespDto> locationNames = IntStream.range(0, summary.getRouteLocationNames().size())
-                .mapToObj(i -> RouteLocationNameRespDto.fromEntity(summary.getRouteLocationNames().get(i), i))
-                .collect(Collectors.toList());
-
-        RouteSummaryRespDto dto = RouteSummaryRespDto.builder()
-                .routeGuides(guides)
-                .routePaths(paths)
-                .routeLocations(locationNames)
-                .build();
-
-        return dto;
+        return convertORSResponseToRouteSummaryRespDto(
+                orsResponse,
+                locationNames,
+                locationCodes,
+                Collections.emptyList() // typeCode 저장 여부에 따라 수정
+        );
     }
+
+    @Transactional(readOnly = true)
+    public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+
+        ORSResponse orsResponse = orsCilent.getORSDirection(
+                summary.getStart(),
+                summary.getGoal(),
+                summary.getWayPoints()
+        );
+
+        return convertToRouteGuides(
+                orsResponse,
+                List.of(summary.getLocateName().split(",")),
+                parseLocation(summary.getStart(), summary.getGoal(), summary.getWayPoints()),
+                List.of(summary.getTypeCode().split(","))
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoutePathRespDto> getPathByUserId(Long userId) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+
+        ORSResponse orsResponse = orsCilent.getORSDirection(
+                summary.getStart(),
+                summary.getGoal(),
+                summary.getWayPoints()
+        );
+
+        return convertToRoutePaths(orsResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+
+        return convertToLocationNames(
+                List.of(summary.getLocateName().split(",")),
+                parseLocation(summary.getStart(), summary.getGoal(), summary.getWayPoints()),
+                List.of(summary.getTypeCode().split(","))
+        );
+    }
+
 
     private String[][] parseLocation(String start, String goal, String wayPoints) {
         List<String[]> locationCodes = new ArrayList<>();
@@ -308,42 +167,130 @@ public class RouteService implements RouteServiceImpl {
             String[][] locationCodes,
             List<String> typeCodes) {
 
-        // features[0] 기준으로 파싱 어차피 하나밖에 없음
-        var feature = orsResponse.getFeatures().get(0);
+        List<RouteGuideRespDto> routeGuides = convertToRouteGuides(orsResponse, locationNames, locationCodes, typeCodes);
+        List<RoutePathRespDto> routePaths = convertToRoutePaths(orsResponse);
+        List<RouteLocationNameRespDto> routeLocations = convertToLocationNames(locationNames, locationCodes, typeCodes);
 
-        // routeGuides 생성 원래 Guide를 segments.steps에서 파싱
+        return RouteSummaryRespDto.builder()
+                .routeGuides(routeGuides)
+                .routePaths(routePaths)
+                .routeLocations(routeLocations)
+                .build();
+    }
+
+
+    private List<RouteGuideRespDto> convertToRouteGuides(
+            ORSResponse orsResponse,
+            List<String> locationNames,
+            String[][] locationCodes,
+            List<String> typeCodes) {
+
         List<RouteGuideRespDto> routeGuides = new ArrayList<>();
-        int seq = 0;
-        var coordinates = feature.getGeometry().getCoordinates();
+        List<ORSResponse.ORSFeatures> features = orsResponse.getFeatures();
+        ORSResponse.ORSFeatures firstFeature = features.get(0);
 
-        for (var segment : feature.getProperties().getSegments()) {
-            for (var step : segment.getSteps()) {
+        List<List<Double>> coordinates = firstFeature.getGeometry().getCoordinates();
+        List<ORSResponse.ORSSegment> segments = firstFeature.getProperties().getSegments();
+
+        // 출발지 직접 추가
+        routeGuides.add(RouteGuideRespDto.builder()
+                .sequenceNum(0)
+                .distance(0)
+                .duration(0)
+                .instructions("출발지")
+                .locationName(locationNames.get(0))
+                .pointIndex(0)
+                .type(11)
+                .lon(locationCodes[0][0])
+                .lat(locationCodes[0][1])
+                .build());
+
+        int seq = 1;
+        int locationNameIndex = 1;
+        int totalSteps = segments.stream().mapToInt(s -> s.getSteps().size()).sum();
+        int currentIndex = 0;
+
+        for (ORSResponse.ORSSegment segment : segments) {
+            for (ORSResponse.ORSStep step : segment.getSteps()) {
+                String instructions;
+                String locationName;
+                int type;
+
+                // 목적지
+                if (step.getInstruction().contains("Arrive at your destination") && currentIndex == totalSteps-1) {
+                    if (step.getInstruction().contains("right")) {
+                        instructions = "목적지가 오른쪽에 있습니다.";
+                    } else if (step.getInstruction().contains("left")) {
+                        instructions = "목적지가 왼쪽에 있습니다.";
+                    } else {
+                        instructions = "목적지";
+                    }
+                    type = 10;
+                    locationName = locationNames.get(locationNames.size() - 1);
+
+                    // 경유지
+                } else if (step.getInstruction().contains("Arrive at")) {
+                    if (step.getInstruction().contains("right")) {
+                        instructions = "경유지가 오른쪽에 있습니다.";
+                    } else if (step.getInstruction().contains("left")) {
+                        instructions = "경유지가 왼쪽에 있습니다.";
+                    } else {
+                        instructions = "경유지";
+                    }
+                    type = 9;
+                    locationName = locationNames.get(locationNameIndex++);
+                } else {
+                    // 일반 안내
+                    instructions = step.getInstruction();
+                    locationName = "-".equals(step.getName()) ? "" : step.getName();
+                    type = step.getType() == 11 ? 6 : step.getType();
+                }
+
+                // instructions에 Head 뭐시기 있고 + type=6 은 제외
+                if (instructions.contains("Head") && type == 6) {
+                    currentIndex++;
+                    continue;
+                }
+
                 routeGuides.add(RouteGuideRespDto.builder()
                         .sequenceNum(seq++)
                         .distance((int) step.getDistance())
                         .duration((int) (step.getDuration() * 1000))
-                        .instructions(step.getInstruction())
-                        .locationName("-".equals(step.getName()) ? "" : step.getName())
+                        .instructions(instructions)
+                        .locationName(locationName)
                         .pointIndex(step.getWay_points().get(0))
-                        .type(step.getType())
+                        .type(type)
                         .lon(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(0)))
                         .lat(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(1)))
                         .build());
+                currentIndex++;
             }
         }
+        return routeGuides;
+    }
 
-        // RoutePathRespDto는 geometry.coordinates 에서 파싱
+    private List<RoutePathRespDto> convertToRoutePaths(ORSResponse orsResponse) {
+        ORSResponse.ORSFeatures feature = orsResponse.getFeatures().get(0);
+        List<List<Double>> coordinates = feature.getGeometry().getCoordinates();
+
         List<RoutePathRespDto> routePaths = new ArrayList<>();
         for (int i = 0; i < coordinates.size(); i++) {
-            List<Double> coord = coordinates.get(i); // [lon, lat]
+            List<Double> coord = coordinates.get(i);
             routePaths.add(RoutePathRespDto.builder()
                     .sequenceNum(i)
                     .lon(String.valueOf(coord.get(0)))
                     .lat(String.valueOf(coord.get(1)))
                     .build());
         }
+        return routePaths;
+    }
 
-        List<RouteLocationNameRespDto> routeLocations = IntStream.range(0, locationNames.size())
+    private List<RouteLocationNameRespDto> convertToLocationNames(
+            List<String> locationNames,
+            String[][] locationCodes,
+            List<String> typeCodes) {
+
+        return IntStream.range(0, locationNames.size())
                 .mapToObj(i -> RouteLocationNameRespDto.builder()
                         .sequenceNum(i + 1)
                         .name(locationNames.get(i))
@@ -353,14 +300,6 @@ public class RouteService implements RouteServiceImpl {
                         .lat(locationCodes[i][1])
                         .build()
                 ).collect(Collectors.toList());
-
-
-        return RouteSummaryRespDto.builder()
-                .routeGuides(routeGuides)
-                .routePaths(routePaths)
-                .routeLocations(routeLocations)
-                .build();
     }
-
 
 }
