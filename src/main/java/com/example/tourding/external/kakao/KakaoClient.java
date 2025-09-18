@@ -22,21 +22,15 @@ public class KakaoClient {
     @Value("${kakao.client.kakaoAK}")
     private String kakaoAK;
 
-    public KakaoSearchResponse kakaoSearchConvenience(String x, String y, String radius, String query) {
-        try {
-
-            return kakaoSearch(x, y, radius, query);
-
-        } catch (CustomException exception) {
-            throw exception;
-        }
+    public KakaoSearchResponse kakaoSearchByLocation(String x, String y, String radius, String query) {
+        return kakaoSearch(createUrl(x,y,radius,query));
     }
 
-    private KakaoSearchResponse kakaoSearch(String x, String y, String radius, String query) {
-        final String url = "https://dapi.kakao.com/v2/local/search/keyword.json" +
-                "?query=" + query + "&x=" + x + "&y=" + y + "&radius=" + radius;
-        System.out.println(url);
+    public KakaoSearchResponse kakoSearchByName(String query) {
+        return kakaoSearch(createUrl(query));
+    }
 
+    private KakaoSearchResponse kakaoSearch(String url) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "KakaoAK " + kakaoAK);
 
@@ -47,21 +41,18 @@ public class KakaoClient {
         return response.getBody();
     }
 
-    private KakaoSearchResponse combineResponses(KakaoSearchResponse response1, KakaoSearchResponse response2) {
-        List<KakaoSearchResponse.Document> combinedDocuments = new ArrayList<>();
+    private String createUrl(String x, String y, String radius, String query) {
+        StringBuilder url = new StringBuilder("https://dapi.kakao.com/v2/local/search/keyword.json?");
 
-        if (response1.getDocuments() != null) {
-            combinedDocuments.addAll(response1.getDocuments());
-        }
+        if (x != null) url.append("&x=" + x);
+        if (y != null) url.append("&y=" + y);
+        if (radius != null) url.append("&radius=" + radius);
+        if (query != null) url.append("&query=" + query);
+        return url.toString();
+    }
 
-        if (response2.getDocuments() != null) {
-            combinedDocuments.addAll(response2.getDocuments());
-        }
-
-        KakaoSearchResponse combinedResponse = new KakaoSearchResponse();
-        combinedResponse.setDocuments(combinedDocuments);
-
-        return combinedResponse;
+    private String createUrl(String query) {
+        return createUrl(null, null, null, query);
     }
 
 }
