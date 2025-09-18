@@ -22,9 +22,9 @@ public class SwaggerConfig {
 
     @Bean
     public OpenAPI openAPI() {
-        // HTTPS URL인 경우 포트를 추가하지 않음 (기본 443 포트 사용)
-        String baseUrl = serverUrl.startsWith("https://") ? serverUrl : serverUrl + ":" + serverPort;
-        
+        // serverUrl이 이미 포트를 포함하면 그대로 쓰고, 아니면 포트 붙이기
+        String baseUrl = serverUrl.contains(":") ? serverUrl : serverUrl + ":" + serverPort;
+
         return new OpenAPI()
                 .info(apiInfo())
                 .servers(List.of(

@@ -3,8 +3,6 @@ package com.example.tourding.direction.controller;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.service.RouteService;
 import io.swagger.v3.oas.annotations.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +57,23 @@ public class RouteController {
     public List<RouteLocationNameRespDto> getLocationName(@RequestParam Long userId) {
         List<RouteLocationNameRespDto> resp = routeService.getLocationNameByUserId(userId);
         log.info("✅ [SUCCESS] getLocationName 호출 완료 - userId={}, 반환 개수={}", userId, resp.size());
+        return resp;
+    }
+
+    @GetMapping("/riding-recommend")
+    @Operation(summary = "추천 라이딩코스 받기")
+    public List<RouteRidingRecomDto> getLocationName(@RequestParam int pageNum) {
+        List<RouteRidingRecomDto> resp = routeService.getRidingRecommend(pageNum);
+        log.info("✅ [SUCCESS] getLocationName 호출 완료 - 페이지 번호={}, 반환 개수={}", pageNum, resp.size());
+        return resp;
+    }
+
+    @PostMapping("/by-name")
+    @Operation(summary = "추천 라이딩코스 받기")
+    public RouteSummaryRespDto getRidingCourse(@RequestBody RouteByNameReqDto requestDto) {
+        RouteSummaryRespDto resp = routeService.getRouteByName(requestDto);
+        log.info("✅ [SUCCESS] getDirection 호출 완료 -, start={}, goal={}",
+                requestDto.getStart(), requestDto.getGoal());
         return resp;
     }
 }

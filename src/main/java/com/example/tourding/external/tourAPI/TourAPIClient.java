@@ -1,6 +1,5 @@
 package com.example.tourding.external.tourAPI;
 
-import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.CoercionAction;
 import com.fasterxml.jackson.databind.cfg.CoercionInputShape;

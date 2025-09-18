@@ -3,8 +3,16 @@ package com.example.tourding.direction.service;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.*;
 import com.example.tourding.direction.repository.*;
+import com.example.tourding.external.kakao.KakaoClient;
+import com.example.tourding.external.kakao.KakaoSearchResponse;
 import com.example.tourding.external.open_routes_service.ORSCilent;
 import com.example.tourding.external.open_routes_service.ORSResponse;
+import com.example.tourding.external.riding_course.RidingCourseClient;
+import com.example.tourding.external.riding_course.RidingCourseResponse;
+import com.example.tourding.kakaoSearch.dto.KakaoSearchRespDto;
+import com.example.tourding.tourApi.dto.SearchAreaRespDto;
+import com.example.tourding.tourApi.dto.SearchLocationDto;
+import com.example.tourding.tourApi.service.TourApiService;
 import com.example.tourding.user.entity.User;
 import com.example.tourding.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +31,9 @@ import java.util.stream.IntStream;
 
 public class RouteService implements RouteServiceImpl {
     private final ORSCilent orsCilent;
+    private final KakaoClient kakaoClient;
+    private final RidingCourseClient ridingCourseClient;
+    private final TourApiService tourApiService;
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
 
@@ -302,4 +313,144 @@ public class RouteService implements RouteServiceImpl {
                 ).collect(Collectors.toList());
     }
 
+    // 라이딩 코스 추천 서비스
+    public List<RouteRidingRecomDto> getRidingRecommend(int pageNum) {
+        /*
+        1. pageNum으로 RidingCourseResponse 받기
+        2. RidingCourseResponse에서 출발지, 도착지, 코스명, 소요시간, 분을 설명을 리턴해줌
+         */
+        // 1. API 호출
+        RidingCourseResponse response = ridingCourseClient.getRidingCourse(pageNum);
+
+        // 2. 응답이 null이거나 data가 비어있을 경우 처리
+        if (response == null || response.getData() == null) {
+            return Collections.emptyList();
+        }
+
+        // 3. 변환 (RidingCourseResponse.Data → RouteRidingRecomDto)
+        return response.getData().stream()
+                .map(d -> RouteRidingRecomDto.builder()
+                        .arrival(d.getArrival())
+                        .description(d.getDescription())
+                        .minutes(d.getMinutes())
+                        .hours(d.getHours())
+                        .departure(d.getDeparture())
+                        .courseType(d.getCourseType())
+                        .courseName(d.getCourseName())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    public RouteSummaryRespDto getRouteByName(RouteByNameReqDto routeByNameReqDto) {
+        // 시작, 도착지 이름으로 카카오 api를 통해서 좌표 받기
+        String start = routeByNameReqDto.getStart();
+        String goal = routeByNameReqDto.getGoal();
+        KakaoSearchResponse kakaoSearchStart = kakaoClient.kakoSearchByName(start);
+        KakaoSearchResponse kakaoSearchGoal = kakaoClient.kakoSearchByName(goal);
+
+        // 응답 body 바탕으로 출발 도착지 경도 위도 받기
+        String startLat = kakaoSearchStart.getDocuments().get(0).getY();
+        String startLon = kakaoSearchStart.getDocuments().get(0).getX();
+        String goalLat = kakaoSearchGoal.getDocuments().get(0).getY();
+        String goalLon = kakaoSearchGoal.getDocuments().get(0).getX();
+
+        // 출발지, 도착지 경도 위도를 바탕으로 사이에 경유지 탐색할 지점 찾기
+
+        List<Double[]> flags = generateFlags(Double.parseDouble(startLat),Double.parseDouble(startLon),Double.parseDouble(goalLat),Double.parseDouble(goalLon));
+
+        // 경유지 탐색지점 경도, 위도를 바탕으로 tourapi의 위치기반 관광지 조회를 호출
+
+        StringBuilder wayPoints = new StringBuilder();
+        StringBuilder wayPointNames = new StringBuilder();
+        StringBuilder wayPointTypeCodes = new StringBuilder();
+
+        // 경도 위도를 나눈점을 기준으로 해당 좌표 주변의 관광지중 하나씩을 골라 좌표를 저장
+        for (Double[] flag : flags) {
+            SearchLocationDto searchLocationDto = SearchLocationDto.builder()
+                    .pageNum(1)
+                    .mapX(String.valueOf(flag[1]))
+                    .mapY(String.valueOf(flag[0]))
+                    .radius("20000")
+                    .typeCode("12")
+                    .build();
+
+            // 결과 리스트가 null/empty인지 먼저 확인 (빈 리스트에서 get(0) 호출 방지)
+            List<SearchAreaRespDto> results = tourApiService.searchByLocation(searchLocationDto);
+            if (results == null || results.isEmpty()) {
+                continue; // 이 분할 지점에서는 추가할 경유지가 없음
+            }
+
+            SearchAreaRespDto searchAreaRespDto = results.get(0);
+            String geoCode = searchAreaRespDto.getMapx() + "," + searchAreaRespDto.getMapy();
+
+            // WayPoint '|' 로 구분
+            if (wayPoints.length() > 0) {
+                wayPoints.append("|");
+            }
+            wayPoints.append(geoCode);
+        }
+        // 지역이름 이름 ',' 로 분리
+        String typeCodesStr = wayPointTypeCodes.toString();
+        if (typeCodesStr.endsWith(",")) {
+            typeCodesStr = typeCodesStr.substring(0, typeCodesStr.length() - 1);
+        }
+
+        String locateNameStr = (wayPointNames.length() > 0)
+                ? routeByNameReqDto.getStart() + "," + wayPointNames + "," + routeByNameReqDto.getGoal()
+                : routeByNameReqDto.getStart() + "," + routeByNameReqDto.getGoal();
+
+        // 출발 도착지 경도, 위도를 통해서 길찾기 호출하기
+        RouteRequestDto routeRequestDto = RouteRequestDto.builder()
+                .userId(routeByNameReqDto.getUserId())
+                // Kakao: x=lon, y=lat → ORS requires [lon,lat]
+                .start(startLon + "," + startLat)
+                .goal(goalLon + "," + goalLat)
+                .wayPoints(wayPoints.toString())
+                .locateName(locateNameStr)
+                .typeCode(typeCodesStr)
+                .build();
+
+        return getRoute(routeRequestDto);
+    }
+
+    private List<Double[]> generateFlags(double lat1, double lon1, double lat2, double lon2) {
+        List<Double[]> waypoints = new ArrayList<>();
+
+        double distance = haversine(lat1, lon1, lat2, lon2); // km 단위 거리
+
+        int numPoints = (int) Math.ceil(distance / 20.0);
+
+        if (numPoints < 2) numPoints = 2;
+        if (numPoints > 5) {
+            if (distance / 6.0 > 20) {
+                numPoints = 6; // 강제로 6등분
+            } else {
+                numPoints = 5;
+            }
+        }
+
+        for (int i = 1; i < numPoints; i++) {
+            double ratio = (double) i / numPoints;
+            double lat = lat1 + (lat2 - lat1) * ratio;
+            double lon = lon1 + (lon2 - lon1) * ratio;
+            waypoints.add(new Double[]{lat, lon});
+        }
+
+        return waypoints;
+    }
+
+    // 두 좌표 사이 거리(km) 계산 (Haversine 공식)
+    private double haversine(double lat1, double lon1, double lat2, double lon2) {
+        final double R = 6371.0; // 지구 반지름 (km)
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
 }
