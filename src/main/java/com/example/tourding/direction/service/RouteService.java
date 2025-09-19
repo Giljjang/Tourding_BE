@@ -9,7 +9,6 @@ import com.example.tourding.external.open_routes_service.ORSCilent;
 import com.example.tourding.external.open_routes_service.ORSResponse;
 import com.example.tourding.external.riding_course.RidingCourseClient;
 import com.example.tourding.external.riding_course.RidingCourseResponse;
-import com.example.tourding.kakaoSearch.dto.KakaoSearchRespDto;
 import com.example.tourding.tourApi.dto.SearchAreaRespDto;
 import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.example.tourding.tourApi.service.TourApiService;
@@ -18,6 +17,8 @@ import com.example.tourding.user.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import java.util.Collections;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 
 public class RouteService implements RouteServiceImpl {
     private final ORSCilent orsCilent;
@@ -348,6 +350,11 @@ public class RouteService implements RouteServiceImpl {
         String goal = routeByNameReqDto.getGoal();
         KakaoSearchResponse kakaoSearchStart = kakaoClient.kakoSearchByName(start);
         KakaoSearchResponse kakaoSearchGoal = kakaoClient.kakoSearchByName(goal);
+
+        if (kakaoSearchStart.getMeta().getPageable_count() == 0 || kakaoSearchGoal.getMeta().getPageable_count() == 0) {
+            log.warn("카카오 장소검색 실패");
+            return null;
+        }
 
         // 응답 body 바탕으로 출발 도착지 경도 위도 받기
         String startLat = kakaoSearchStart.getDocuments().get(0).getY();
