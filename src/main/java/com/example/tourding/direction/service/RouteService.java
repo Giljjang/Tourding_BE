@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -327,7 +328,7 @@ public class RouteService implements RouteServiceImpl {
             return Collections.emptyList();
         }
 
-        // 3. 변환 (RidingCourseResponse.Data → RouteRidingRecomDto)
+        // 3. 변환
         return response.getData().stream()
                 .map(d -> RouteRidingRecomDto.builder()
                         .arrival(d.getArrival())
@@ -371,7 +372,7 @@ public class RouteService implements RouteServiceImpl {
                     .mapX(String.valueOf(flag[1]))
                     .mapY(String.valueOf(flag[0]))
                     .radius("20000")
-                    .typeCode("12")
+                    .typeCode("A01")
                     .build();
 
             // 결과 리스트가 null/empty인지 먼저 확인 (빈 리스트에서 get(0) 호출 방지)
@@ -380,29 +381,33 @@ public class RouteService implements RouteServiceImpl {
                 continue; // 이 분할 지점에서는 추가할 경유지가 없음
             }
 
-            SearchAreaRespDto searchAreaRespDto = results.get(0);
+            int randomNum = new Random().nextInt(10);
+            SearchAreaRespDto searchAreaRespDto = results.get(randomNum);
             String geoCode = searchAreaRespDto.getMapx() + "," + searchAreaRespDto.getMapy();
 
             // WayPoint '|' 로 구분
-            if (wayPoints.length() > 0) {
+            if (!wayPoints.isEmpty()) {
                 wayPoints.append("|");
             }
             wayPoints.append(geoCode);
+            wayPointNames.append(searchAreaRespDto.getTitle()).append(",");
+            wayPointTypeCodes.append("경유지,");
+            System.out.println(wayPoints);
         }
         // 지역이름 이름 ',' 로 분리
-        String typeCodesStr = wayPointTypeCodes.toString();
+        String typeCodesStr = "출발지,+"+ wayPointTypeCodes +"도착지";
         if (typeCodesStr.endsWith(",")) {
             typeCodesStr = typeCodesStr.substring(0, typeCodesStr.length() - 1);
         }
 
-        String locateNameStr = (wayPointNames.length() > 0)
-                ? routeByNameReqDto.getStart() + "," + wayPointNames + "," + routeByNameReqDto.getGoal()
+        String locateNameStr = (!wayPointNames.isEmpty())
+                ? routeByNameReqDto.getStart() + "," + wayPointNames + routeByNameReqDto.getGoal()
                 : routeByNameReqDto.getStart() + "," + routeByNameReqDto.getGoal();
 
         // 출발 도착지 경도, 위도를 통해서 길찾기 호출하기
         RouteRequestDto routeRequestDto = RouteRequestDto.builder()
                 .userId(routeByNameReqDto.getUserId())
-                // Kakao: x=lon, y=lat → ORS requires [lon,lat]
+                // Kakao: x=lon, y=lat → ORS lon,lat
                 .start(startLon + "," + startLat)
                 .goal(goalLon + "," + goalLat)
                 .wayPoints(wayPoints.toString())

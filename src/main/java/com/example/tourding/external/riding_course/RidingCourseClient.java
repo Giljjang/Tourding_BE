@@ -19,10 +19,10 @@ public class RidingCourseClient {
     @Value("${tour.client.serviceKey}")
     private String serviceKey;
 
-    private int randomNum = new Random().nextInt(20) + 1; // 만약 pageNum이 0이 들어오면 랜덤 숫자로 페이징
 
     public RidingCourseResponse getRidingCourse(int pagenum) { // pageNum : 0 -> 랜덤페이지 생성, pageNum > 0 사용자 지정 페이지 번호
         try {
+            int randomNum = new Random().nextInt(8) + 1; // 만약 pageNum이 0이 들어오면 랜덤 숫자로 페이징
             int pageToUse = (pagenum < 1) ? randomNum : pagenum;
             String safeServiceKey = serviceKey.replace("+", "%2B");
 
