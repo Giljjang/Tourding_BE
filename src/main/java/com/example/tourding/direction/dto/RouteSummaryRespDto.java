@@ -11,13 +11,10 @@ import java.util.List;
 @NoArgsConstructor
 @Builder
 
-public class RouteSummaryRespDto {
+public class RouteSummaryRespDto { // 경로 출발, 도착 시간만 들어오도록 초 / 미터단위로
 
-    @Builder.Default
-    private List<RouteGuideRespDto> routeGuides = new ArrayList<>();
-    @Builder.Default
-    private List<RoutePathRespDto> routePaths = new ArrayList<>();
-    @Builder.Default
-    private List<RouteLocationNameRespDto> routeLocations = new ArrayList<>();
+    private Boolean isUsed;
+    private Double duration;
+    private Double distance;
 
 }

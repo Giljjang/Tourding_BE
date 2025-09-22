@@ -41,6 +41,9 @@ public class RouteSummary {
     @Column(nullable = false)
     private String locateName; // 출발지,경유지,도착지 이름은 ","로 구분해서 들어옴
 
+    @Column(nullable = false)
+    private Boolean isUsed; // 실제 경로검색에 사용이 되었는지
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
