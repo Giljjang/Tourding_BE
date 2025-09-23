@@ -39,12 +39,12 @@ public class TourApiService {
         return praseDto(response);
     }
 
-    public List<SearchAreaRespDto> searchByLocation(SearchLocationDto searchLocationReqDto) {
-        int pageNum = searchLocationReqDto.getPageNum();
-        String mapX = searchLocationReqDto.getMapX();
-        String mapY = searchLocationReqDto.getMapY();
-        String radius = searchLocationReqDto.getRadius();
-        String typeCode = searchLocationReqDto.getTypeCode();
+    public List<SearchAreaRespDto> searchByLocation(SearchLocationDto searchLocationDto) {
+        int pageNum = searchLocationDto.getPageNum();
+        String mapX = searchLocationDto.getMapX();
+        String mapY = searchLocationDto.getMapY();
+        String radius = searchLocationDto.getRadius();
+        String typeCode = searchLocationDto.getTypeCode();
 
         SearchAreaResponse response = tourAPIClient.searchLocationDto(pageNum, mapX, mapY, radius, typeCode);
         return praseDto(response);
@@ -94,7 +94,8 @@ public class TourApiService {
         List<DetailIntroResponse.Item> intro = detailIntroResponse.getResponse().getBody().getItems().getItem();
         DetailIntroResponse.Item introItem = common.isEmpty() ? null : intro.get(0);
 
-        String address = commonItem.getAddr1() + commonItem.getAddr2() + " (" + commonItem.getZipcode() + ")";
+        String zipCode = commonItem.getZipcode() != null ? " (" + commonItem.getZipcode() + ")" : "";
+        String address = commonItem.getAddr1() + commonItem.getAddr2() + zipCode;
 
         return DetailInfoRespDto.builder()
                 // ===== 공통 필드 =====

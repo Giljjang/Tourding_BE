@@ -1,6 +1,5 @@
 package com.example.tourding.direction.dto;
 
-import com.example.tourding.direction.entity.RoutePath;
 import lombok.*;
 
 import java.util.List;
@@ -20,14 +19,6 @@ public class RoutePathRespDto {
         return RoutePathRespDto.builder()
                 .lon(location.get(0))
                 .lat(location.get(1))
-                .sequenceNum(sequenceNum)
-                .build();
-    }
-
-    public static RoutePathRespDto fromEntity(RoutePath routePath, int sequenceNum) {
-        return RoutePathRespDto.builder()
-                .lat(routePath.getLat())
-                .lon(routePath.getLon())
                 .sequenceNum(sequenceNum)
                 .build();
     }

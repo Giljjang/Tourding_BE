@@ -21,7 +21,7 @@ public class KakaoApiService {
         String lon = kakaoSearchReqDto.getLon();
         String radius = kakaoSearchReqDto.getRadius();
 
-        KakaoSearchResponse kakaoSearchResponse = kakaoClient.kakaoSearchConvenience(lon, lat, radius, query);
+        KakaoSearchResponse kakaoSearchResponse = kakaoClient.kakaoSearchByLocation(lon, lat, radius, query);
 
         List<KakaoSearchResponse.Document> documents = kakaoSearchResponse.getDocuments();
         if(documents == null) {
