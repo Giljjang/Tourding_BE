@@ -35,8 +35,8 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private RouteSummary summary;
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RouteSummary> summaries = new ArrayList<>();
 
     public User(String username, String password, String email) {
         this.username = username;
@@ -49,11 +49,18 @@ public class User {
         this.passwordHash = password;
         this.email = email;
     }
+    public void addSummary(RouteSummary routeSummary) {
+        if (routeSummary == null) return;
+        if (!summaries.contains(routeSummary)) {
+            summaries.add(routeSummary);
+            routeSummary.setUser(this);
+        }
+    }
 
-    public void setSummary(RouteSummary routeSummary) {
-        this.summary = routeSummary;
-        if(summary != null) {
-            summary.setUser(this);
+    public void removeSummary(RouteSummary routeSummary) {
+        if (routeSummary == null) return;
+        if (summaries.remove(routeSummary)) {
+            routeSummary.setUser(null);
         }
     }
 

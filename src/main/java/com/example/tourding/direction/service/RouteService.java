@@ -53,13 +53,11 @@ public class RouteService implements RouteServiceImpl {
                 orsResponse
         );
 
-        RouteSummary summary;
-        if (user.getSummary() != null) {
-            summary = user.getSummary(); // 기존 엔티티 가져오기
-        } else {
-            summary = new RouteSummary();
-            summary.setUser(user);
-        }
+        RouteSummary summary = routeSummaryRepository
+                .findRouteSummaryByUserIdAndIsUsed(user.getId(), requestDto.getIsUsed())
+                .orElse(new RouteSummary());
+
+        summary.setUser(user);
         summary.setStart(requestDto.getStart());
         summary.setGoal(requestDto.getGoal());
         summary.setWayPoints(requestDto.getWayPoints());
@@ -81,7 +79,7 @@ public class RouteService implements RouteServiceImpl {
 
         routeSummaryRepository.flush();
 
-        user.setSummary(null);
+        user.removeSummary(existingSummary);
     }
 
     @Transactional(readOnly = true)
