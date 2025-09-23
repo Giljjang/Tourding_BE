@@ -20,7 +20,7 @@ public class RouteController {
     private final RouteService routeService;
 
     @PostMapping
-    @Operation(summary = "출발지, 도착지 입력해서 길찾기 API 호출, 경로 요약 반환")
+    @Operation(summary = "출발지, 도착지 입력해서 총시간, 총거리 조회")
     public RouteSummaryRespDto getDirection(@RequestBody RouteRequestDto requestDto) {
         RouteSummaryRespDto resp = routeService.getRoute(requestDto);
         log.info("✅ [SUCCESS] getDirection 호출 완료 - userId={}, start={}, goal={}",
@@ -29,33 +29,33 @@ public class RouteController {
     }
 
     @GetMapping
-    @Operation(summary = "사용자 ID로 전체 경로 조회")
-    public RouteSummaryRespDto getRoute(@RequestParam Long userId) {
-        RouteSummaryRespDto resp = routeService.getRouteSummaryByUserId(userId);
+    @Operation(summary = "사용자 ID로 총시간, 총거리, 검색인지, 실제 경로 탐색인지 조회")
+    public RouteSummaryRespDto getRoute(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        RouteSummaryRespDto resp = routeService.getRouteSummaryByUserId(userId, isUsed);
         log.info("✅ [SUCCESS] getRoute 호출 완료 - userId={}", userId);
         return resp;
     }
 
     @GetMapping("/guide")
     @Operation(summary = "사용자 ID로 경로 안내 조회")
-    public List<RouteGuideRespDto> getGuide(@RequestParam Long userId) {
-        List<RouteGuideRespDto> resp = routeService.getGuideByUserId(userId);
+    public List<RouteGuideRespDto> getGuide(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        List<RouteGuideRespDto> resp = routeService.getGuideByUserId(userId, isUsed);
         log.info("✅ [SUCCESS] getGuide 호출 완료 - userId={}, 반환 개수={}", userId, resp.size());
         return resp;
     }
 
     @GetMapping("/path")
     @Operation(summary = "사용자 ID로 경로 조회")
-    public List<RoutePathRespDto> getPath(@RequestParam Long userId) {
-        List<RoutePathRespDto> resp = routeService.getPathByUserId(userId);
+    public List<RoutePathRespDto> getPath(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        List<RoutePathRespDto> resp = routeService.getPathByUserId(userId, isUsed);
         log.info("✅ [SUCCESS] getPath 호출 완료 - userId={}, 반환 개수={}", userId, resp.size());
         return resp;
     }
 
     @GetMapping("/location-name")
     @Operation(summary = "사용자 ID로 출발지,경유지,도착지 정보 조회")
-    public List<RouteLocationNameRespDto> getLocationName(@RequestParam Long userId) {
-        List<RouteLocationNameRespDto> resp = routeService.getLocationNameByUserId(userId);
+    public List<RouteLocationNameRespDto> getLocationName(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        List<RouteLocationNameRespDto> resp = routeService.getLocationNameByUserId(userId, isUsed);
         log.info("✅ [SUCCESS] getLocationName 호출 완료 - userId={}, 반환 개수={}", userId, resp.size());
         return resp;
     }

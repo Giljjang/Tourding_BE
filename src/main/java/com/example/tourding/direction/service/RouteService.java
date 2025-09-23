@@ -9,7 +9,6 @@ import com.example.tourding.external.open_routes_service.ORSCilent;
 import com.example.tourding.external.open_routes_service.ORSResponse;
 import com.example.tourding.external.riding_course.RidingCourseClient;
 import com.example.tourding.external.riding_course.RidingCourseResponse;
-import com.example.tourding.kakaoSearch.dto.KakaoSearchRespDto;
 import com.example.tourding.tourApi.dto.SearchAreaRespDto;
 import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.example.tourding.tourApi.service.TourApiService;
@@ -50,24 +49,21 @@ public class RouteService implements RouteServiceImpl {
                 requestDto.getWayPoints()
         );
         RouteSummaryRespDto dto = convertORSResponseToRouteSummaryRespDto(
-                orsResponse,
-                List.of(requestDto.getLocateName().split(",")),
-                parseLocation(requestDto.getStart(), requestDto.getGoal(), requestDto.getWayPoints()),
-                List.of(requestDto.getTypeCode().split(","))
+                requestDto.getIsUsed(),
+                orsResponse
         );
 
-        RouteSummary summary;
-        if (user.getSummary() != null) {
-            summary = user.getSummary(); // 기존 엔티티 가져오기
-        } else {
-            summary = new RouteSummary();
-            summary.setUser(user);
-        }
+        RouteSummary summary = routeSummaryRepository
+                .findRouteSummaryByUserIdAndIsUsed(user.getId(), requestDto.getIsUsed())
+                .orElse(new RouteSummary());
+
+        summary.setUser(user);
         summary.setStart(requestDto.getStart());
         summary.setGoal(requestDto.getGoal());
         summary.setWayPoints(requestDto.getWayPoints());
         summary.setLocateName(requestDto.getLocateName());
         summary.setTypeCode(requestDto.getTypeCode());
+        summary.setIsUsed(requestDto.getIsUsed());
 
         routeSummaryRepository.save(summary);
 
@@ -83,12 +79,12 @@ public class RouteService implements RouteServiceImpl {
 
         routeSummaryRepository.flush();
 
-        user.setSummary(null);
+        user.removeSummary(existingSummary);
     }
 
     @Transactional(readOnly = true)
-    public RouteSummaryRespDto getRouteSummaryByUserId(Long userId) {
-        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+    public RouteSummaryRespDto getRouteSummaryByUserId(Long userId, Boolean isUsed) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
                 .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
 
         ORSResponse orsResponse = orsCilent.getORSDirection(
@@ -97,20 +93,15 @@ public class RouteService implements RouteServiceImpl {
                 summary.getWayPoints()
         );
 
-        List<String> locationNames = List.of(summary.getLocateName().split(","));
-        String[][] locationCodes = parseLocation(summary.getStart(), summary.getGoal(), summary.getWayPoints());
-
         return convertORSResponseToRouteSummaryRespDto(
-                orsResponse,
-                locationNames,
-                locationCodes,
-                Collections.emptyList() // typeCode 저장 여부에 따라 수정
+                isUsed,
+                orsResponse
         );
     }
 
     @Transactional(readOnly = true)
-    public List<RouteGuideRespDto> getGuideByUserId(Long userId) {
-        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+    public List<RouteGuideRespDto> getGuideByUserId(Long userId, Boolean isUsed) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
                 .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
 
         ORSResponse orsResponse = orsCilent.getORSDirection(
@@ -128,8 +119,8 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional(readOnly = true)
-    public List<RoutePathRespDto> getPathByUserId(Long userId) {
-        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+    public List<RoutePathRespDto> getPathByUserId(Long userId, Boolean isUsed) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
                 .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
 
         ORSResponse orsResponse = orsCilent.getORSDirection(
@@ -142,8 +133,8 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional(readOnly = true)
-    public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId) {
-        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserId(userId)
+    public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId, Boolean isUsed) {
+        RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
                 .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
 
         return convertToLocationNames(
@@ -174,19 +165,15 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private RouteSummaryRespDto convertORSResponseToRouteSummaryRespDto(
-            ORSResponse orsResponse,
-            List<String> locationNames,
-            String[][] locationCodes,
-            List<String> typeCodes) {
+            Boolean isUsed,
+            ORSResponse orsResponse) {
 
-        List<RouteGuideRespDto> routeGuides = convertToRouteGuides(orsResponse, locationNames, locationCodes, typeCodes);
-        List<RoutePathRespDto> routePaths = convertToRoutePaths(orsResponse);
-        List<RouteLocationNameRespDto> routeLocations = convertToLocationNames(locationNames, locationCodes, typeCodes);
+        List<ORSResponse.ORSFeatures> features = orsResponse.getFeatures();
 
         return RouteSummaryRespDto.builder()
-                .routeGuides(routeGuides)
-                .routePaths(routePaths)
-                .routeLocations(routeLocations)
+                .duration(features.get(0).getProperties().getSummary().getDuration())
+                .distance(features.get(0).getProperties().getSummary().getDistance())
+                .isUsed(isUsed)
                 .build();
     }
 
@@ -413,6 +400,7 @@ public class RouteService implements RouteServiceImpl {
                 .wayPoints(wayPoints.toString())
                 .locateName(locateNameStr)
                 .typeCode(typeCodesStr)
+                .isUsed(false)
                 .build();
 
         return getRoute(routeRequestDto);
