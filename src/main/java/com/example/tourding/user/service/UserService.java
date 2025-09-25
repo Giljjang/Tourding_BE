@@ -70,8 +70,11 @@ public class UserService implements UserServiceImpl{
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("유저 찾기 실패 : " + id));
-        Optional<RouteSummary> routeSummaryOpt = routeSummaryRepository.findRouteSummaryByUserId(id);
-        routeSummaryOpt.ifPresent(summary -> routeService.deleteUserRoute(summary.getId(), user));
+        Optional<RouteSummary> routeSummaryTrue = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(id,true);
+        routeSummaryTrue.ifPresent(summary -> routeService.deleteUserRoute(summary.getId(), user));
+
+        Optional<RouteSummary> routeSummaryFalse = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(id,false);
+        routeSummaryFalse.ifPresent(summary -> routeService.deleteUserRoute(summary.getId(), user));
 
         userRepository.delete(user);
     }
