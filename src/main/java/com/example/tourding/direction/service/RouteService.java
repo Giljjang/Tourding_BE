@@ -215,37 +215,38 @@ public class RouteService implements RouteServiceImpl {
                 String locationName;
                 int type;
 
-                // 목적지
-                if (step.getInstruction().contains("Arrive at your destination") && currentIndex == totalSteps-1) {
-                    if (step.getInstruction().contains("right")) {
-                        instructions = "목적지가 오른쪽에 있습니다.";
-                    } else if (step.getInstruction().contains("left")) {
-                        instructions = "목적지가 왼쪽에 있습니다.";
-                    } else {
-                        instructions = "목적지";
+                if (step.getInstruction().contains("Arrive at")) {
+                    // 마지막 인덱스면 목적지
+                    if (currentIndex == totalSteps - 1) {
+                        if (step.getInstruction().contains("right")) {
+                            instructions = "목적지가 오른쪽에 있습니다.";
+                        } else if (step.getInstruction().contains("left")) {
+                            instructions = "목적지가 왼쪽에 있습니다.";
+                        } else {
+                            instructions = "목적지";
+                        }
+                        type = 10;
+                        locationName = locationNames.get(locationNames.size() - 1);
                     }
-                    type = 10;
-                    locationName = locationNames.get(locationNames.size() - 1);
+                    // 그 외는 경유지
+                    else {
+                        if (step.getInstruction().contains("right")) {
+                            instructions = "경유지가 오른쪽에 있습니다.";
+                        } else if (step.getInstruction().contains("left")) {
+                            instructions = "경유지가 왼쪽에 있습니다.";
+                        } else {
+                            instructions = "경유지";
+                        }
+                        type = 9;
+                        locationName = locationNames.get(locationNameIndex++);
+                    }
 
-                    // 경유지
-                } else if (step.getInstruction().contains("Arrive at")) {
-                    if (step.getInstruction().contains("right")) {
-                        instructions = "경유지가 오른쪽에 있습니다.";
-                    } else if (step.getInstruction().contains("left")) {
-                        instructions = "경유지가 왼쪽에 있습니다.";
-                    } else {
-                        instructions = "경유지";
-                    }
-                    type = 9;
-                    locationName = locationNames.get(locationNameIndex++);
                 } else {
-                    // 일반 안내
                     instructions = step.getInstruction();
                     locationName = "-".equals(step.getName()) ? "" : step.getName();
                     type = step.getType() == 11 ? 6 : step.getType();
                 }
 
-                // instructions에 Head 뭐시기 있고 + type=6 은 제외
                 if (instructions.contains("Head") && type == 6) {
                     currentIndex++;
                     continue;
@@ -262,6 +263,7 @@ public class RouteService implements RouteServiceImpl {
                         .lon(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(0)))
                         .lat(String.valueOf(coordinates.get(step.getWay_points().get(0)).get(1)))
                         .build());
+
                 currentIndex++;
             }
         }
