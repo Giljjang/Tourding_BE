@@ -1,7 +1,21 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: tourding-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: tourding_db
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
   app:
     build: .
     container_name: tourding-app
+    depends_on:
+      - mysql
     ports:
       - "127.0.0.1:8080:8080"
     env_file:
@@ -26,3 +40,5 @@ services:
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
     restart: unless-stopped
+volumes:
+  mysql_data:
