@@ -142,7 +142,8 @@ public class RouteService implements RouteServiceImpl {
                 List.of(summary.getLocateName().split(",")),
                 parseLocation(summary.getStart(), summary.getGoal(), summary.getWayPoints()),
                 List.of(summary.getTypeCode().split(",")),
-                List.of(summary.getContentId().split(","))
+                List.of(summary.getContentId().split(",")),
+                List.of(summary.getContentTypeId().split(","))
         );
     }
 
@@ -292,7 +293,8 @@ public class RouteService implements RouteServiceImpl {
             List<String> locationNames,
             String[][] locationCodes,
             List<String> typeCodes,
-            List<String> contentId) {
+            List<String> contentId,
+            List<String> contentTypeId) {
 
         return IntStream.range(0, locationNames.size())
                 .mapToObj(i -> RouteLocationNameRespDto.builder()
@@ -301,6 +303,7 @@ public class RouteService implements RouteServiceImpl {
                         .type(i == 0 ? "Start" : (i == locationNames.size() - 1 ? "Goal" : "WayPoint"))
                         .typeCode(i == 0 ? "" : (i == locationNames.size() - 1 ? "" : typeCodes.get(i - 1)))
                         .contentId(i == 0? "" : (i == locationNames.size() - 1 ? "" : contentId.get(i - 1)))
+                        .contentTypeId(i == 0? "" : (i == locationNames.size() - 1 ? "" : contentTypeId.get(i - 1)))
                         .lon(locationCodes[i][0])
                         .lat(locationCodes[i][1])
                         .build()
@@ -357,6 +360,8 @@ public class RouteService implements RouteServiceImpl {
         StringBuilder wayPoints = new StringBuilder();
         StringBuilder wayPointNames = new StringBuilder();
         StringBuilder wayPointTypeCodes = new StringBuilder();
+        StringBuilder contentIds = new StringBuilder();
+        StringBuilder contentTypeIds = new StringBuilder();
 
         // 경도 위도를 나눈점을 기준으로 해당 좌표 주변의 관광지중 하나씩을 골라 좌표를 저장
         for (Double[] flag : flags) {
@@ -377,11 +382,21 @@ public class RouteService implements RouteServiceImpl {
             int randomNum = new Random().nextInt(10);
             SearchAreaRespDto searchAreaRespDto = results.get(randomNum);
             String geoCode = searchAreaRespDto.getMapx() + "," + searchAreaRespDto.getMapy();
+            String contentId = searchAreaRespDto.getContentid();
+            String contentTypeId = searchAreaRespDto.getContenttypeid();
 
             // WayPoint '|' 로 구분
             if (!wayPoints.isEmpty()) {
                 wayPoints.append("|");
             }
+
+            if (!contentIds.isEmpty() && !contentTypeIds.isEmpty()) {
+                contentIds.append(",");
+                contentTypeIds.append(",");
+            }
+
+            contentIds.append(contentId);
+            contentTypeIds.append(contentTypeId);
             wayPoints.append(geoCode);
             wayPointNames.append(searchAreaRespDto.getTitle()).append(",");
             wayPointTypeCodes.append("경유지,");
@@ -405,6 +420,8 @@ public class RouteService implements RouteServiceImpl {
                 .goal(goalLon + "," + goalLat)
                 .wayPoints(wayPoints.toString())
                 .locateName(locateNameStr)
+                .contentId(contentIds.toString())
+                .contentTypeId(contentTypeIds.toString())
                 .typeCode(typeCodesStr)
                 .isUsed(false)
                 .build();
