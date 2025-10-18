@@ -64,6 +64,7 @@ public class RouteService implements RouteServiceImpl {
         summary.setLocateName(requestDto.getLocateName());
         summary.setTypeCode(requestDto.getTypeCode());
         summary.setContentId(requestDto.getContentId());
+        summary.setContentTypeId(requestDto.getContentTypeId());
         summary.setIsUsed(requestDto.getIsUsed());
 
         routeSummaryRepository.save(summary);
@@ -403,7 +404,7 @@ public class RouteService implements RouteServiceImpl {
             System.out.println(wayPoints);
         }
         // 지역이름 이름 ',' 로 분리
-        String typeCodesStr = "출발지,+"+ wayPointTypeCodes +"도착지";
+        String typeCodesStr = "출발지,"+ wayPointTypeCodes +"도착지";
         if (typeCodesStr.endsWith(",")) {
             typeCodesStr = typeCodesStr.substring(0, typeCodesStr.length() - 1);
         }
