@@ -38,6 +38,9 @@ public class RouteSummary {
     @Column
     private String typeCode;
 
+    @Column
+    private String contentId;
+
     @Column(nullable = false)
     private String locateName; // 출발지,경유지,도착지 이름은 ","로 구분해서 들어옴
 
