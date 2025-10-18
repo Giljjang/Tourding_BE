@@ -15,6 +15,8 @@ public class RouteLocationNameRespDto {
     private String name;
     private String type;
     private String typeCode;
+    private String contentId;
+    private String contentTypeId;
     private String lon;
     private String lat;
 }

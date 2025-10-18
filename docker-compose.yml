@@ -1,21 +1,34 @@
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: tourding-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: tourding_db
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
   app:
     build: .
     container_name: tourding-app
+    depends_on:
+      - mysql
     ports:
       - "127.0.0.1:8080:8080"
     env_file:
       - .env
     environment:
       - SPRING_APPLICATION_NAME=tourding
-      - SPRING_DATASOURCE_URL=${SQL_SERVER_URL}
-      - SPRING_DATASOURCE_URL_OPTIONS=characterEncoding=UTF-8;useUnicode=true
-      - SPRING_DATASOURCE_USERNAME=${SQL_SERVER_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${SQL_SERVER_PASSWORD}
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=${SQL_SERVER_DRIVER}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_DATASOURCE_URL=${MYSQL_URL}
+      - SPRING_DATASOURCE_USERNAME=${MYSQL_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${MYSQL_PASSWORD}
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=${MYSQL_DRIVER}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_SHOW_SQL=false
-      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=${SQL_SERVER_DIALECT}
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=${MYSQL_DIALECT}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
       - TOUR_CLIENT_SERVICEKEY=${TOUR_CLIENT_SERVICEKEY}
@@ -26,3 +39,5 @@ services:
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
       - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY}
     restart: unless-stopped
+volumes:
+  mysql_data:
