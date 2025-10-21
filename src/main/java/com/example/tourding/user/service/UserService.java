@@ -29,9 +29,10 @@ public class UserService implements UserServiceImpl{
     private final RouteService routeService;
 
     public UserResponseDto register(UserCreateReqDto userCreateReqDto) {
+        Optional<User> checkUser = userRepository.findByUsername(userCreateReqDto.getUsername());
 
-        if (userRepository.findByEmail(userCreateReqDto.getEmail()).isPresent()) {
-            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        if (checkUser.isPresent()) {
+            return toDto(checkUser.get());
         }
         User user = new User(userCreateReqDto.getUsername(), userCreateReqDto.getPassword(), userCreateReqDto.getEmail());
         return toDto(userRepository.save(user));
