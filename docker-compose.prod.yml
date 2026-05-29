@@ -32,8 +32,11 @@ services:
       APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY}
       JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m}
-    ports:
-      - "127.0.0.1:${APP_BIND_PORT:-18080}:8080"
+    expose:
+      - "8080"
+    networks:
+      tourding-prod-net:
+        ipv4_address: ${APP_CONTAINER_IP:-10.10.130.10}
     healthcheck:
       test: ["CMD-SHELL", "true"]
       interval: 30s
@@ -45,3 +48,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  tourding-prod-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DOCKER_NETWORK_SUBNET:-10.10.130.0/24}

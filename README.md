@@ -42,7 +42,8 @@ docker compose up -d
 - App directory: `/home/tourding`
 - Reverse proxy: Nginx on host machine
 - TLS: Certbot
-- Container port binding: `127.0.0.1:18080 -> 8080`
+- Docker network subnet: `10.10.130.0/24`
+- App container IP: `10.10.130.10`
 - Public domain: `https://tourding.walab.info`
 
 배포 구조:
@@ -50,8 +51,8 @@ docker compose up -d
 ```text
 Internet
   -> Nginx (host)
-  -> 127.0.0.1:18080
-  -> tourding-prod-app container:8080
+  -> 10.10.130.10:8080
+  -> tourding-prod-app on Docker bridge network
   -> remote MySQL
 ```
 
@@ -114,7 +115,8 @@ Internet
 |---|---|---|
 | `DOCKER_IMAGE` | `ghcr.io/giljjang/tourding` | 배포할 이미지 경로 |
 | `DEPLOY_PATH` | `/home/tourding` | 서버 배포 디렉터리 |
-| `APP_BIND_PORT` | `18080` | 호스트에 바인딩할 로컬 포트 |
+| `APP_CONTAINER_IP` | `10.10.130.10` | 앱 컨테이너의 고정 IP |
+| `DOCKER_NETWORK_SUBNET` | `10.10.130.0/24` | 운영용 Docker bridge subnet |
 
 ## ENV_FILE 구성
 
@@ -224,7 +226,8 @@ DB 이름이 빠지면 `No database selected` 오류가 발생합니다.
 
 - 앱 컨테이너만 실행
 - DB 컨테이너는 띄우지 않음
-- `127.0.0.1:${APP_BIND_PORT}:8080` 로만 바인딩
+- `ports` 대신 `expose: 8080` 사용
+- custom bridge network에 고정 IP로 연결
 - 환경변수는 `--env-file`로만 주입
 - 로그 로테이션 설정 포함
 
@@ -248,7 +251,7 @@ DB 이름이 빠지면 `No database selected` 오류가 발생합니다.
 
 ```bash
 sudo docker ps
-curl -I http://127.0.0.1:18080
+curl -I http://10.10.130.10:8080
 curl -I https://tourding.walab.info
 sudo nginx -t
 sudo certbot certificates
