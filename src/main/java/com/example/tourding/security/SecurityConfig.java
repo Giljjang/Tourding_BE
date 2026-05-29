@@ -30,8 +30,7 @@ public class SecurityConfig {
         
         // 허용할 오리진 설정 (HTTPS 포함)
         configuration.setAllowedOriginPatterns(Arrays.asList(
-                "https://tourding.store",
-                "https://www.tourding.store",
+                "https://tourding.walab.info",
                 "http://localhost:3000",
                 "http://localhost:3001",
                 "http://127.0.0.1:3000",

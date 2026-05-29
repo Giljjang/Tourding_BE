@@ -1,96 +1,173 @@
-name: Deploy to EC2
+name: Deploy Tourding
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: tourding-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE }}
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/tourding' }}
+  APP_BIND_PORT: ${{ vars.APP_BIND_PORT }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
+    environment: production
+
     steps:
-      - name: Checkout code
+      - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: Compute image tag
+        id: image
+        run: echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR for push
+        uses: docker/login-action@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Gradle packages
-        uses: actions/cache@v3
+      - name: Build and push image
+        uses: docker/build-push-action@v6
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+            ${{ env.DOCKER_IMAGE }}:${{ steps.image.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build with Gradle
-        run: ./gradlew build -x test
-
-      - name: Clean old files on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "🧹 기존 tourding 디렉토리 정리 중 (.env 제외)..."
-            find ~/tourding -mindepth 1 ! -name '.env' -exec rm -rf {} +
-
-
-
-      # ✅ 최신 코드 다시 복사
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "."
-          target: "~/tourding"
-          strip_components: 0
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/tourding
-      
-            # 기존 컨테이너 정리
-            echo "🔄 기존 컨테이너 정리 중..."
-            docker-compose down || true
-            docker system prune -f
-      
-            # 도커 이미지 빌드 (캐시 없이)
-            echo "📦 도커 이미지 빌드 중..."
-            docker-compose build --no-cache
-      
-            # 컨테이너 시작
-            echo "🚀 컨테이너 시작 중..."
-            docker-compose up -d
-      
-            # 배포 상태 확인
-            echo "✅ 배포 상태 확인 중..."
-            sleep 10
-            docker-compose ps
-            docker-compose logs --tail=20
-      
-            echo "🎉 배포 완료!"
-
-      - name: Notify deployment status
-        if: always()
+      - name: Prepare deployment bundle
+        shell: bash
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
         run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ 배포 성공! 새로운 이미지가 EC2에 배포되었습니다."
-            echo "🌐 애플리케이션 접속: http://${{ secrets.EC2_HOST }}:8080"
-          else
-            echo "❌ 배포 실패! 로그를 확인해주세요."
-          fi
+          set -eu
+          mkdir -p .deploy
+          printf '%s\n' "$ENV_FILE" > .deploy/runtime.env
+          cp docker-compose.prod.yml .deploy/docker-compose.prod.yml
+          cp deploy/nginx/tourding.walab.info.conf .deploy/tourding.walab.info.conf
+
+      - name: Create remote deployment directories
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            set -eu
+            mkdir -p "${{ env.DEPLOY_PATH }}/incoming"
+            mkdir -p "${{ env.DEPLOY_PATH }}/deploy/nginx"
+
+      - name: Upload deployment bundle
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          source: ".deploy/*"
+          target: "${{ env.DEPLOY_PATH }}/incoming"
+          strip_components: 1
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1
+        env:
+          APP_BIND_PORT: ${{ env.APP_BIND_PORT }}
+          DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
+          DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          IMAGE_TAG: ${{ steps.image.outputs.tag }}
+          SUDO_PASSWORD: ${{ secrets.SUDO_PASSWORD }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          envs: APP_BIND_PORT,DEPLOY_PATH,DOCKER_IMAGE,GHCR_TOKEN,GHCR_USERNAME,IMAGE_TAG,SUDO_PASSWORD
+          script: |
+            set -eu
+
+            sudo_exec() {
+              printf '%s\n' "$SUDO_PASSWORD" | sudo -S "$@"
+            }
+
+            DEPLOY_PATH="${DEPLOY_PATH%/}"
+            INCOMING_PATH="$DEPLOY_PATH/incoming"
+            COMPOSE_FILE="$DEPLOY_PATH/docker-compose.prod.yml"
+            NGINX_FILE="$DEPLOY_PATH/deploy/nginx/tourding.walab.info.conf"
+            RUNTIME_ENV="$(mktemp /tmp/tourding-env.XXXXXX)"
+            trap 'rm -f "$RUNTIME_ENV"' EXIT
+
+            mv "$INCOMING_PATH/runtime.env" "$RUNTIME_ENV"
+            chmod 600 "$RUNTIME_ENV"
+            mv "$INCOMING_PATH/docker-compose.prod.yml" "$COMPOSE_FILE"
+            mv "$INCOMING_PATH/tourding.walab.info.conf" "$NGINX_FILE"
+
+            if sudo_exec docker compose version >/dev/null 2>&1; then
+              COMPOSE_BIN="docker compose"
+            elif sudo_exec docker-compose version >/dev/null 2>&1; then
+              COMPOSE_BIN="docker-compose"
+            else
+              echo "docker compose command not found on server" >&2
+              exit 1
+            fi
+
+            printf '%s\n' "$SUDO_PASSWORD" | sudo -SE env GHCR_TOKEN="$GHCR_TOKEN" GHCR_USERNAME="$GHCR_USERNAME" sh -c '
+              printf "%s\n" "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            '
+
+            if [ "$COMPOSE_BIN" = "docker compose" ]; then
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" pull
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" up -d --remove-orphans
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" ps
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" logs --no-color --tail=50 app
+            else
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker-compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" pull
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker-compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" up -d --remove-orphans
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker-compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" ps
+              sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
+                docker-compose --env-file "$RUNTIME_ENV" -f "$COMPOSE_FILE" logs --tail=50 app
+            fi
+
+            CONTAINER_STATUS="$(sudo_exec docker inspect -f '{{.State.Status}}' tourding-prod-app 2>/dev/null || true)"
+            if [ "$CONTAINER_STATUS" != "running" ]; then
+              echo "tourding-prod-app is not running after deploy" >&2
+              exit 1
+            fi
+
+            if sudo_exec test -f /etc/letsencrypt/live/tourding.walab.info/fullchain.pem && \
+               sudo_exec test -f /etc/letsencrypt/live/tourding.walab.info/privkey.pem; then
+              sudo_exec cp "$NGINX_FILE" /etc/nginx/sites-available/tourding.walab.info
+              sudo_exec ln -sfn /etc/nginx/sites-available/tourding.walab.info /etc/nginx/sites-enabled/tourding.walab.info
+              sudo_exec nginx -t
+              sudo_exec systemctl reload nginx
+            else
+              echo "Skipping nginx install: certbot certificate for tourding.walab.info was not found."
+            fi
+
+            rm -rf "$INCOMING_PATH"
