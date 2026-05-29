@@ -47,6 +47,25 @@ jobs:
             exit 1
           fi
 
+      - name: Validate required secrets
+        shell: bash
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+          SUDO_PASSWORD: ${{ secrets.SUDO_PASSWORD }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: |
+          set -eu
+          for name in SERVER_HOST SERVER_USER SERVER_PASSWORD SUDO_PASSWORD GHCR_USERNAME GHCR_TOKEN ENV_FILE; do
+            if [ -z "$(printenv "$name")" ]; then
+              echo "$name is empty or missing. Check repository/environment secrets." >&2
+              exit 1
+            fi
+          done
+
       - name: Compute image tag
         id: image
         run: echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
@@ -129,7 +148,7 @@ jobs:
             INCOMING_PATH="$DEPLOY_PATH/incoming"
             COMPOSE_FILE="$DEPLOY_PATH/docker-compose.prod.yml"
             RUNTIME_ENV="$(mktemp /tmp/tourding-env.XXXXXX)"
-            trap 'rm -f "$RUNTIME_ENV"' EXIT
+            trap 'sudo_exec docker logout ghcr.io >/dev/null 2>&1 || true; rm -f "$RUNTIME_ENV"' EXIT
 
             mv "$INCOMING_PATH/runtime.env" "$RUNTIME_ENV"
             chmod 600 "$RUNTIME_ENV"
@@ -144,9 +163,7 @@ jobs:
               exit 1
             fi
 
-            printf '%s\n' "$SUDO_PASSWORD" | sudo -SE env GHCR_TOKEN="$GHCR_TOKEN" GHCR_USERNAME="$GHCR_USERNAME" sh -c '
-              printf "%s\n" "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
-            '
+            sudo_exec docker login ghcr.io -u "$GHCR_USERNAME" -p "$GHCR_TOKEN"
 
             if [ "$COMPOSE_BIN" = "docker compose" ]; then
               sudo_exec env DOCKER_IMAGE="$DOCKER_IMAGE" IMAGE_TAG="$IMAGE_TAG" APP_BIND_PORT="$APP_BIND_PORT" \
