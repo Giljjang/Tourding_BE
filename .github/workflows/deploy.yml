@@ -16,18 +16,36 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE }}
-  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/tourding' }}
-  APP_BIND_PORT: ${{ vars.APP_BIND_PORT }}
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DOCKER_IMAGE: ${{ vars.DOCKER_IMAGE }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/tourding' }}
+      APP_BIND_PORT: ${{ vars.APP_BIND_PORT || '18080' }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -eu
+          if [ -z "${DOCKER_IMAGE:-}" ]; then
+            echo "DOCKER_IMAGE is empty. Set production environment variable DOCKER_IMAGE, for example ghcr.io/giljjang/tourding" >&2
+            exit 1
+          fi
+          if [ -z "${DEPLOY_PATH:-}" ]; then
+            echo "DEPLOY_PATH is empty. Set production environment variable DEPLOY_PATH, for example /home/tourding" >&2
+            exit 1
+          fi
+          if [ -z "${APP_BIND_PORT:-}" ]; then
+            echo "APP_BIND_PORT is empty. Set production environment variable APP_BIND_PORT, for example 18080" >&2
+            exit 1
+          fi
 
       - name: Compute image tag
         id: image
