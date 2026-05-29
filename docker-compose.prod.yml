@@ -1,0 +1,47 @@
+name: tourding-prod
+
+services:
+  app:
+    image: ${DOCKER_IMAGE:-ghcr.io/REPLACE_ME/tourding}:${IMAGE_TAG:-latest}
+    container_name: tourding-prod-app
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Seoul}
+      SERVER_PORT: 8080
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SPRING_APPLICATION_NAME: ${SPRING_APPLICATION_NAME:-tourding}
+      SPRING_DATASOURCE_URL: ${MYSQL_URL}
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: ${MYSQL_DRIVER:-com.mysql.cj.jdbc.Driver}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ${MYSQL_DIALECT:-org.hibernate.dialect.MySQL8Dialect}
+      SWAGGER_SERVER_URL: ${SWAGGER_SERVER_URL}
+      SWAGGER_USER: ${SWAGGER_USER}
+      SWAGGER_PASS: ${SWAGGER_PASS}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+      TOUR_CLIENT_SERVICEKEY: ${TOUR_CLIENT_SERVICEKEY}
+      KAKAO_CLIENT_KAKAOAK: ${KAKAO_CLIENT_KAKAOAK}
+      OPEN_ROUTE_SERVICE_KEY: ${OPEN_ROUTE_SERVICE_KEY}
+      OPEN_WEATHER_MAP_KEY: ${OPEN_WEATHER_MAP_KEY}
+      APPLE_KEY_ID: ${APPLE_KEY_ID}
+      APPLE_ISS: ${APPLE_ISS}
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx512m}
+    ports:
+      - "127.0.0.1:${APP_BIND_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "true"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
