@@ -82,7 +82,6 @@ jobs:
           mkdir -p .deploy
           printf '%s\n' "$ENV_FILE" > .deploy/runtime.env
           cp docker-compose.prod.yml .deploy/docker-compose.prod.yml
-          cp deploy/nginx/tourding.walab.info.conf .deploy/tourding.walab.info.conf
 
       - name: Create remote deployment directories
         uses: appleboy/ssh-action@v1
@@ -93,7 +92,6 @@ jobs:
           script: |
             set -eu
             mkdir -p "${{ env.DEPLOY_PATH }}/incoming"
-            mkdir -p "${{ env.DEPLOY_PATH }}/deploy/nginx"
 
       - name: Upload deployment bundle
         uses: appleboy/scp-action@v1
@@ -130,14 +128,12 @@ jobs:
             DEPLOY_PATH="${DEPLOY_PATH%/}"
             INCOMING_PATH="$DEPLOY_PATH/incoming"
             COMPOSE_FILE="$DEPLOY_PATH/docker-compose.prod.yml"
-            NGINX_FILE="$DEPLOY_PATH/deploy/nginx/tourding.walab.info.conf"
             RUNTIME_ENV="$(mktemp /tmp/tourding-env.XXXXXX)"
             trap 'rm -f "$RUNTIME_ENV"' EXIT
 
             mv "$INCOMING_PATH/runtime.env" "$RUNTIME_ENV"
             chmod 600 "$RUNTIME_ENV"
             mv "$INCOMING_PATH/docker-compose.prod.yml" "$COMPOSE_FILE"
-            mv "$INCOMING_PATH/tourding.walab.info.conf" "$NGINX_FILE"
 
             if sudo_exec docker compose version >/dev/null 2>&1; then
               COMPOSE_BIN="docker compose"
@@ -176,16 +172,6 @@ jobs:
             if [ "$CONTAINER_STATUS" != "running" ]; then
               echo "tourding-prod-app is not running after deploy" >&2
               exit 1
-            fi
-
-            if sudo_exec test -f /etc/letsencrypt/live/tourding.walab.info/fullchain.pem && \
-               sudo_exec test -f /etc/letsencrypt/live/tourding.walab.info/privkey.pem; then
-              sudo_exec cp "$NGINX_FILE" /etc/nginx/sites-available/tourding.walab.info
-              sudo_exec ln -sfn /etc/nginx/sites-available/tourding.walab.info /etc/nginx/sites-enabled/tourding.walab.info
-              sudo_exec nginx -t
-              sudo_exec systemctl reload nginx
-            else
-              echo "Skipping nginx install: certbot certificate for tourding.walab.info was not found."
             fi
 
             rm -rf "$INCOMING_PATH"
