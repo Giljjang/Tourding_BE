@@ -70,4 +70,30 @@ public class ORSCilent {
             throw new RuntimeException("OpenRouteService 호출 실패", e);
         }
     }
+
+    public ORSJsonResponse getRouteAnalysis(ORSRouteAnalysisRequest request) {
+        try {
+            String profile = request.getProfile() == null ? "cycling-regular" : request.getProfile();
+            final String url = "https://api.openrouteservice.org/v2/directions/" + profile + "/json";
+
+            String requestBody = objectMapper.writeValueAsString(request.toRequestBody());
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", routeServiceKey);
+
+            HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+
+            ResponseEntity<ORSJsonResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    entity,
+                    ORSJsonResponse.class
+            );
+
+            return response.getBody();
+        } catch (Exception e) {
+            throw new RuntimeException("OpenRouteService 분석 호출 실패", e);
+        }
+    }
 }
