@@ -20,27 +20,36 @@ public class RouteController {
     private final RouteService routeService;
 
     @PostMapping
-    @Operation(summary = "출발지, 도착지 입력해서 총시간, 총거리 조회")
-    public RouteSummaryRespDto getDirection(@RequestBody RouteRequestDto requestDto) {
-        RouteSummaryRespDto resp = routeService.getRoute(requestDto);
+    @Operation(summary = "출발지, 도착지 입력해서 통합 코스 정보 조회")
+    public RouteGuideRespDto getDirection(@RequestBody RouteRequestDto requestDto) {
+        RouteGuideRespDto resp = routeService.getRoute(requestDto);
         log.info("✅ [SUCCESS] getDirection 호출 완료 - userId={}, start={}, goal={}",
                 requestDto.getUserId(), requestDto.getStart(), requestDto.getGoal());
         return resp;
     }
 
     @GetMapping
-    @Operation(summary = "사용자 ID로 총시간, 총거리, 검색인지, 실제 경로 탐색인지 조회")
-    public RouteSummaryRespDto getRoute(@RequestParam Long userId, @RequestParam Boolean isUsed) {
-        RouteSummaryRespDto resp = routeService.getRouteSummaryByUserId(userId, isUsed);
+    @Operation(summary = "사용자 ID로 통합 코스 정보 조회")
+    public RouteGuideRespDto getRoute(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        RouteGuideRespDto resp = routeService.getRouteSummaryByUserId(userId, isUsed);
         log.info("✅ [SUCCESS] getRoute 호출 완료 - userId={}", userId);
         return resp;
     }
 
     @GetMapping("/guide")
     @Operation(summary = "사용자 ID로 경로 안내 조회")
-    public List<RouteGuideRespDto> getGuide(@RequestParam Long userId, @RequestParam Boolean isUsed) {
-        List<RouteGuideRespDto> resp = routeService.getGuideByUserId(userId, isUsed);
-        log.info("✅ [SUCCESS] getGuide 호출 완료 - userId={}, 반환 개수={}", userId, resp.size());
+    public RouteGuideRespDto getGuide(@RequestParam Long userId, @RequestParam Boolean isUsed) {
+        RouteGuideRespDto resp = routeService.getGuideByUserId(userId, isUsed);
+        log.info("✅ [SUCCESS] getGuide 호출 완료 - userId={}", userId);
+        return resp;
+    }
+
+    @PostMapping("/recommendations")
+    @Operation(summary = "사용자 라이딩 정보 기반 추천 경로 3개 조회")
+    public RouteRecommendationsRespDto getRouteRecommendations(@RequestBody RouteRequestDto requestDto) {
+        RouteRecommendationsRespDto resp = routeService.getRouteRecommendations(requestDto);
+        log.info("✅ [SUCCESS] getRouteRecommendations 호출 완료 - userId={}, 반환 개수={}",
+                requestDto.getUserId(), resp.getRoutes() == null ? 0 : resp.getRoutes().size());
         return resp;
     }
 
@@ -70,8 +79,8 @@ public class RouteController {
 
     @PostMapping("/by-name")
     @Operation(summary = "추천 라이딩코스 받기")
-    public RouteSummaryRespDto getRidingCourse(@RequestBody RouteByNameReqDto requestDto) {
-        RouteSummaryRespDto resp = routeService.getRouteByName(requestDto);
+    public RouteGuideRespDto getRidingCourse(@RequestBody RouteByNameReqDto requestDto) {
+        RouteGuideRespDto resp = routeService.getRouteByName(requestDto);
         log.info("✅ [SUCCESS] getDirection 호출 완료 -, start={}, goal={}",
                 requestDto.getStart(), requestDto.getGoal());
         return resp;

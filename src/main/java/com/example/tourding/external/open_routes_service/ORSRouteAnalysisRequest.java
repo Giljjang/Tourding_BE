@@ -15,10 +15,19 @@ public class ORSRouteAnalysisRequest {
     private String preference;
     private List<List<Double>> coordinates;
     private Integer steepnessDifficulty;
+    private Boolean avoidSteps;
+    private Boolean avoidFords;
 
     public Map<String, Object> toRequestBody() {
         String resolvedPreference = preference == null ? "recommended" : preference;
         int resolvedSteepness = steepnessDifficulty == null ? 1 : steepnessDifficulty;
+        List<String> avoidFeatures = new java.util.ArrayList<>();
+        if (Boolean.TRUE.equals(avoidSteps)) {
+            avoidFeatures.add("steps");
+        }
+        if (Boolean.TRUE.equals(avoidFords)) {
+            avoidFeatures.add("fords");
+        }
 
         return Map.of(
                 "coordinates", coordinates,
@@ -31,7 +40,7 @@ public class ORSRouteAnalysisRequest {
                 "extra_info", List.of("steepness", "suitability", "surface", "waytype"),
                 "attributes", List.of("avgspeed", "detourfactor", "percentage"),
                 "options", Map.of(
-                        "avoid_features", List.of("steps"),
+                        "avoid_features", avoidFeatures,
                         "profile_params", Map.of(
                                 "weightings", Map.of("steepness_difficulty", resolvedSteepness)
                         )

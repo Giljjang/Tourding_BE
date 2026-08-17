@@ -1,8 +1,10 @@
 package com.example.tourding.user.controller;
 
+import com.example.tourding.ai.dto.UserRidingProfileReqDto;
 import com.example.tourding.external.apple.service.AppleAuthService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
+import com.example.tourding.user.dto.response.UserRidingProfileRespDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
 import com.example.tourding.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,6 +50,21 @@ public class UserController {
             @RequestBody UserUpdateReqDto userUpdateReqDto
     ) {
         return ResponseEntity.ok(userService.updateUser(id, userUpdateReqDto));
+    }
+
+    @Operation(summary = "온보딩 라이딩 정보 수정", description = "사용자의 자전거 종류, 빠른 코스, 회피옵션, 경사 난이도를 저장합니다.")
+    @PutMapping("/{userId}/riding-profile")
+    public ResponseEntity<UserRidingProfileRespDto> updateRidingProfile(
+            @PathVariable Long userId,
+            @RequestBody UserRidingProfileReqDto requestDto
+    ) {
+        return ResponseEntity.ok(userService.updateRidingProfile(userId, requestDto));
+    }
+
+    @Operation(summary = "라이딩 정보 조회", description = "사용자의 저장된 라이딩 옵션을 조회합니다.")
+    @GetMapping("/{userId}/riding-profile")
+    public ResponseEntity<UserRidingProfileRespDto> getRidingProfile(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getRidingProfile(userId));
     }
 
     @Operation(summary = "사용자 삭제", description = "ID를 기준으로 사용자를 삭제합니다.")

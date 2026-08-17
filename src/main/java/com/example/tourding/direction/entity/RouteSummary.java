@@ -50,6 +50,30 @@ public class RouteSummary {
     @Column(nullable = false)
     private Boolean isUsed; // 실제 경로검색에 사용이 되었는지
 
+    @Column(length = 50)
+    private String cyclingProfile;
+
+    @Column
+    private Boolean fastRoute;
+
+    @Column
+    private Boolean avoidSteps;
+
+    @Column
+    private Boolean avoidFords;
+
+    @Column(length = 30)
+    private String skillLevel;
+
+    @Column
+    private Double preferenceScore;
+
+    @Lob
+    private String extraInfoJson;
+
+    @Lob
+    private String routeGeometryJson;
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();

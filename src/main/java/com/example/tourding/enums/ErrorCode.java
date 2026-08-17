@@ -15,7 +15,12 @@ public enum ErrorCode{
     WAYPOINT_OUT_OF_ROAD(4, "경유지가 도로 주변이 아님",HttpStatus.BAD_REQUEST),
     TOO_LONG_DISTANCE(5, "경유지를 포함한 직선거리 합이 1500km 초과",HttpStatus.BAD_REQUEST),
     APPLE_WITHDRAW_FAILED(6,"애플 access token 요청 실패",HttpStatus.FORBIDDEN),
-    DUPLICATE_EMAIL(7,"이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT);
+    DUPLICATE_EMAIL(7,"이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
+    AI_STT_FAILED(8, "음성을 인식하지 못했습니다. 다시 말씀해주세요.", HttpStatus.BAD_REQUEST),
+    AI_UNSUPPORTED_REQUEST(9, "현재 데이터로 처리할 수 없는 요청입니다.", HttpStatus.BAD_REQUEST),
+    AI_ROUTE_CANDIDATE_EMPTY(10, "후보 경로 생성에 실패했습니다.", HttpStatus.BAD_REQUEST),
+    ORS_ROUTE_REQUEST_FAILED(11, "ORS 경로 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
+    ROUTE_SUMMARY_NOT_FOUND(12, "현재 라이딩 경로가 없습니다.", HttpStatus.NOT_FOUND);
 
     @Getter
     private final int code;

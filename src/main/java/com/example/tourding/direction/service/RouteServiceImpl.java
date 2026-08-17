@@ -1,10 +1,8 @@
 package com.example.tourding.direction.service;
 
 import com.example.tourding.direction.dto.RouteRequestDto;
-import com.example.tourding.direction.dto.RouteSummaryRespDto;
-
-import java.util.List;
+import com.example.tourding.direction.dto.RouteGuideRespDto;
 
 public interface RouteServiceImpl {
-    RouteSummaryRespDto getRoute(RouteRequestDto requestDto);
+    RouteGuideRespDto getRoute(RouteRequestDto requestDto);
 }

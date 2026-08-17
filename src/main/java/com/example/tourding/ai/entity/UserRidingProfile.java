@@ -29,6 +29,15 @@ public class UserRidingProfile {
     private String skillLevel;
 
     @Column(nullable = false)
+    private Boolean fastRoute;
+
+    @Column(nullable = false)
+    private Boolean avoidSteps;
+
+    @Column(nullable = false)
+    private Boolean avoidFords;
+
+    @Column(nullable = false)
     private Boolean avoidHills;
 
     @Column(nullable = false)
@@ -52,7 +61,10 @@ public class UserRidingProfile {
         this.createdAt = now;
         this.updatedAt = now;
         if (this.cyclingProfile == null) this.cyclingProfile = "cycling-regular";
-        if (this.skillLevel == null) this.skillLevel = "NORMAL";
+        if (this.skillLevel == null) this.skillLevel = "BEGINNER";
+        if (this.fastRoute == null) this.fastRoute = true;
+        if (this.avoidSteps == null) this.avoidSteps = true;
+        if (this.avoidFords == null) this.avoidFords = true;
         if (this.avoidHills == null) this.avoidHills = false;
         if (this.preferPaved == null) this.preferPaved = true;
         if (this.preferBikeRoad == null) this.preferBikeRoad = true;

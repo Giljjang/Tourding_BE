@@ -1,5 +1,6 @@
 package com.example.tourding.external.open_routes_service;
 
+import com.example.tourding.direction.dto.RouteOptionDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,8 +21,16 @@ public class ORSCilent {
     private String routeServiceKey;
 
     public ORSResponse getORSDirection(String start, String goal, String wayPoints) {
+        return getORSDirection(start, goal, wayPoints, RouteOptionDto.defaults());
+    }
+
+    public ORSResponse getORSDirection(String start, String goal, String wayPoints, RouteOptionDto routeOption) {
         try {
-            final String url = "https://api.openrouteservice.org/v2/directions/cycling-regular/geojson";
+            RouteOptionDto resolvedOption = routeOption == null ? RouteOptionDto.defaults() : routeOption;
+            String profile = resolvedOption.getCyclingProfile() == null || resolvedOption.getCyclingProfile().isBlank()
+                    ? "cycling-regular"
+                    : resolvedOption.getCyclingProfile();
+            final String url = "https://api.openrouteservice.org/v2/directions/" + profile + "/geojson";
 
             List<List<Double>> coordinates = new ArrayList<>();
             String[] startCoords = start.split(",");
@@ -49,6 +58,8 @@ public class ORSCilent {
 
             Map<String, Object> body = new HashMap<>();
             body.put("coordinates", coordinates);
+            body.put("preference", Boolean.TRUE.equals(resolvedOption.getFastRoute()) ? "fastest" : "recommended");
+            body.put("options", buildOptions(resolvedOption));
 
             String requestBody = objectMapper.writeValueAsString(body);
 
@@ -95,5 +106,35 @@ public class ORSCilent {
         } catch (Exception e) {
             throw new RuntimeException("OpenRouteService 분석 호출 실패", e);
         }
+    }
+
+    private Map<String, Object> buildOptions(RouteOptionDto option) {
+        List<String> avoidFeatures = new ArrayList<>();
+        if (Boolean.TRUE.equals(option.getAvoidSteps())) {
+            avoidFeatures.add("steps");
+        }
+        if (Boolean.TRUE.equals(option.getAvoidFords())) {
+            avoidFeatures.add("fords");
+        }
+
+        return Map.of(
+                "avoid_features", avoidFeatures,
+                "profile_params", Map.of(
+                        "weightings", Map.of("steepness_difficulty", steepnessDifficulty(option.getSkillLevel()))
+                )
+        );
+    }
+
+    private int steepnessDifficulty(String skillLevel) {
+        if ("NORMAL".equals(skillLevel)) {
+            return 1;
+        }
+        if ("ADVANCED".equals(skillLevel)) {
+            return 2;
+        }
+        if ("PRO".equals(skillLevel)) {
+            return 3;
+        }
+        return 0;
     }
 }

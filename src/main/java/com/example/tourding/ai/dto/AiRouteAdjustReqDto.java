@@ -1,5 +1,6 @@
 package com.example.tourding.ai.dto;
 
+import com.example.tourding.direction.dto.RouteOptionDto;
 import lombok.*;
 
 @Getter
@@ -13,4 +14,5 @@ public class AiRouteAdjustReqDto {
     private Double currentLon;
     private Double currentLat;
     private String message;
+    private RouteOptionDto routeOption;
 }
