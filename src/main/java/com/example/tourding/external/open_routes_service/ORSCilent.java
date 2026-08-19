@@ -20,6 +20,9 @@ public class ORSCilent {
     @Value("${open.route.service.key}")
     private String routeServiceKey;
 
+    @Value("${open.route.service.base-url:https://api.openrouteservice.org}")
+    private String routeServiceBaseUrl;
+
     public ORSResponse getORSDirection(String start, String goal, String wayPoints) {
         return getORSDirection(start, goal, wayPoints, RouteOptionDto.defaults());
     }
@@ -30,7 +33,7 @@ public class ORSCilent {
             String profile = resolvedOption.getCyclingProfile() == null || resolvedOption.getCyclingProfile().isBlank()
                     ? "cycling-regular"
                     : resolvedOption.getCyclingProfile();
-            final String url = "https://api.openrouteservice.org/v2/directions/" + profile + "/geojson";
+            final String url = routeServiceBaseUrl + "/v2/directions/" + profile + "/geojson";
 
             List<List<Double>> coordinates = new ArrayList<>();
             String[] startCoords = start.split(",");
@@ -59,6 +62,13 @@ public class ORSCilent {
             Map<String, Object> body = new HashMap<>();
             body.put("coordinates", coordinates);
             body.put("preference", Boolean.TRUE.equals(resolvedOption.getFastRoute()) ? "fastest" : "recommended");
+            body.put("elevation", true);
+            body.put("instructions", true);
+            body.put("maneuvers", true);
+            body.put("geometry", true);
+            body.put("geometry_simplify", false);
+            body.put("extra_info", List.of("steepness", "suitability", "surface", "waytype"));
+            body.put("attributes", List.of("avgspeed", "detourfactor", "percentage"));
             body.put("options", buildOptions(resolvedOption));
 
             String requestBody = objectMapper.writeValueAsString(body);
@@ -85,7 +95,7 @@ public class ORSCilent {
     public ORSJsonResponse getRouteAnalysis(ORSRouteAnalysisRequest request) {
         try {
             String profile = request.getProfile() == null ? "cycling-regular" : request.getProfile();
-            final String url = "https://api.openrouteservice.org/v2/directions/" + profile + "/json";
+            final String url = routeServiceBaseUrl + "/v2/directions/" + profile + "/json";
 
             String requestBody = objectMapper.writeValueAsString(request.toRequestBody());
 

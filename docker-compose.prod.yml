@@ -1,10 +1,31 @@
 name: tourding-prod
 
 services:
+  ors-cache:
+    image: nginx:1.27-alpine
+    container_name: tourding-prod-ors-cache
+    restart: unless-stopped
+    volumes:
+      - ./deploy/ors-cache/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ors_cache_data:/var/cache/nginx/ors
+    expose:
+      - "80"
+    networks:
+      tourding-prod-net:
+        ipv4_address: ${ORS_CACHE_CONTAINER_IP:-10.10.130.11}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
   app:
     image: ${DOCKER_IMAGE:-ghcr.io/REPLACE_ME/tourding}:${IMAGE_TAG:-latest}
     container_name: tourding-prod-app
     restart: unless-stopped
+    depends_on:
+      - ors-cache
     environment:
       TZ: ${TZ:-Asia/Seoul}
       SERVER_PORT: 8080
@@ -26,6 +47,7 @@ services:
       TOUR_CLIENT_SERVICEKEY: ${TOUR_CLIENT_SERVICEKEY}
       KAKAO_CLIENT_KAKAOAK: ${KAKAO_CLIENT_KAKAOAK}
       OPEN_ROUTE_SERVICE_KEY: ${OPEN_ROUTE_SERVICE_KEY}
+      OPEN_ROUTE_SERVICE_BASE_URL: ${OPEN_ROUTE_SERVICE_BASE_URL:-http://ors-cache}
       OPEN_AI_SECRET_KEY: ${OPEN_AI_SECRET_KEY}
       OPENAI_STT_MODEL: ${OPENAI_STT_MODEL:-gpt-4o-mini-transcribe}
       OPENAI_INTENT_MODEL: ${OPENAI_INTENT_MODEL:-gpt-5-mini}
@@ -62,3 +84,6 @@ networks:
     ipam:
       config:
         - subnet: ${DOCKER_NETWORK_SUBNET:-10.10.130.0/24}
+
+volumes:
+  ors_cache_data:

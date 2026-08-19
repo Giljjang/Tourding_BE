@@ -3,6 +3,7 @@ package com.example.tourding.external.open_routes_service;
 import lombok.Data;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class ORSResponse {
@@ -24,6 +25,7 @@ public class ORSResponse {
         private List<ORSSegment> segments;
         private List<Integer> way_points;
         private ORSSummary summary;
+        private Map<String, ORSJsonResponse.ExtraInfo> extras;
     }
 
     @Data
@@ -36,12 +38,19 @@ public class ORSResponse {
     public static class ORSSummary {
         private double distance; // 총 거리 (m)
         private double duration; // 총 시간 (초)
+        private double ascent;
+        private double descent;
     }
 
     @Data
     public static class ORSSegment {
         private double distance;
         private double duration;
+        private double detourfactor;
+        private double percentage;
+        private double avgspeed;
+        private double ascent;
+        private double descent;
         private List<ORSStep> steps;
     }
 

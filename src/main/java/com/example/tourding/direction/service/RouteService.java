@@ -3,13 +3,14 @@ package com.example.tourding.direction.service;
 import com.example.tourding.ai.service.RouteScoringService;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.RouteSummary;
+import com.example.tourding.direction.entity.RouteSummaryHistory;
+import com.example.tourding.direction.repository.RouteSummaryHistoryRepository;
 import com.example.tourding.direction.repository.RouteSummaryRepository;
 import com.example.tourding.external.kakao.KakaoClient;
 import com.example.tourding.external.kakao.KakaoSearchResponse;
 import com.example.tourding.external.open_routes_service.ORSCilent;
 import com.example.tourding.external.open_routes_service.ORSJsonResponse;
 import com.example.tourding.external.open_routes_service.ORSResponse;
-import com.example.tourding.external.open_routes_service.ORSRouteAnalysisRequest;
 import com.example.tourding.external.riding_course.RidingCourseClient;
 import com.example.tourding.external.riding_course.RidingCourseResponse;
 import com.example.tourding.tourApi.dto.SearchAreaRespDto;
@@ -27,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -39,6 +42,7 @@ public class RouteService implements RouteServiceImpl {
     private final TourApiService tourApiService;
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
+    private final RouteSummaryHistoryRepository routeSummaryHistoryRepository;
     private final UserRidingProfileRepository userRidingProfileRepository;
     private final RouteScoringService routeScoringService;
     private final ObjectMapper objectMapper;
@@ -72,10 +76,12 @@ public class RouteService implements RouteServiceImpl {
                 new RouteCandidateDraft(requestDto, fastOption(baseOption))
         );
 
-        List<RouteBuildResult> results = new ArrayList<>();
-        for (RouteCandidateDraft draft : drafts) {
-            results.add(buildRouteResponse(draft.requestDto(), draft.option(), null, true));
-        }
+        List<RouteBuildResult> results = drafts.stream()
+                .map(draft -> CompletableFuture.supplyAsync(
+                        () -> buildRouteResponse(draft.requestDto(), draft.option(), null, true)
+                ))
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
 
         results.sort(Comparator.<RouteBuildResult>comparingDouble(result -> result.response().getPreferenceScore()).reversed());
         if (!results.isEmpty()) {
@@ -107,6 +113,7 @@ public class RouteService implements RouteServiceImpl {
             Double currentLat,
             RouteOptionDto overrideOption
     ) {
+        snapshotRouteSummary(routeSummary, "AI_ADJUSTMENT");
         RouteOptionDto option = resolveRouteOption(userId, overrideOption);
         RouteRequestDto requestDto = RouteRequestDto.builder()
                 .userId(userId)
@@ -126,6 +133,30 @@ public class RouteService implements RouteServiceImpl {
             throw new IllegalStateException("후보 경로 생성에 실패했습니다.");
         }
         return recommendations.getRoutes().get(0);
+    }
+
+    @Transactional
+    public RouteGuideRespDto rollbackRoute(Long routeSummaryId, Long userId) {
+        RouteSummary summary = routeSummaryRepository.findById(routeSummaryId)
+                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+        if (!summary.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("사용자의 경로가 아닙니다.");
+        }
+
+        RouteSummaryHistory history = routeSummaryHistoryRepository
+                .findFirstByRouteSummaryIdAndUserIdAndRestoredFalseOrderByCreatedAtDesc(routeSummaryId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("되돌릴 이전 경로 없음"));
+
+        restoreRouteSummary(summary, history);
+        history.setRestored(true);
+        history.setRestoredAt(LocalDateTime.now());
+        routeSummaryHistoryRepository.save(history);
+        RouteSummary restored = routeSummaryRepository.save(summary);
+
+        RouteRequestDto requestDto = requestFromSummary(restored);
+        RouteBuildResult result = buildRouteResponse(requestDto, requestDto.getRouteOption(), restored.getPreferenceScore(), true);
+        result.response().setRouteSummaryId(restored.getId());
+        return result.response();
     }
 
     @Transactional
@@ -294,20 +325,14 @@ public class RouteService implements RouteServiceImpl {
                 resolvedOption
         );
 
-        ORSJsonResponse.Route analysisRoute = null;
-        if (includeAnalysis) {
-            ORSJsonResponse analysis = orsCilent.getRouteAnalysis(toAnalysisRequest(requestDto, resolvedOption));
-            if (analysis != null && analysis.getRoutes() != null && !analysis.getRoutes().isEmpty()) {
-                analysisRoute = analysis.getRoutes().get(0);
-            }
-        }
+        ORSResponse.ORSFeatures feature = orsResponse.getFeatures().get(0);
+        ORSResponse.ORSSummary summary = feature.getProperties().getSummary();
+        ORSJsonResponse.Route analysisRoute = includeAnalysis ? analysisRouteFromFeature(feature) : null;
 
         double score = fixedScore == null && analysisRoute != null
                 ? routeScoringService.score(analysisRoute, weightsFor(resolvedOption)).total()
                 : defaultDouble(fixedScore, 0.0);
 
-        ORSResponse.ORSFeatures feature = orsResponse.getFeatures().get(0);
-        ORSResponse.ORSSummary summary = feature.getProperties().getSummary();
         List<String> locationNames = splitCsv(effectiveLocateName(requestDto));
         String[][] locationCodes = parseLocation(requestDto.getStart(), requestDto.getGoal(), requestDto.getWayPoints());
         List<String> typeCodes = splitCsv(requestDto.getTypeCode());
@@ -358,28 +383,84 @@ public class RouteService implements RouteServiceImpl {
         summary.setSkillLevel(option.getSkillLevel());
         summary.setPreferenceScore(result.response().getPreferenceScore());
         summary.setExtraInfoJson(toJson(result.response().getExtraInfo()));
-        summary.setRouteGeometryJson(result.analysisRoute() == null ? "" : defaultString(result.analysisRoute().getGeometry(), ""));
+        summary.setRouteGeometryJson(toJson(result.response().getPaths()));
 
         return routeSummaryRepository.save(summary);
     }
 
-    private ORSRouteAnalysisRequest toAnalysisRequest(RouteRequestDto requestDto, RouteOptionDto option) {
-        return ORSRouteAnalysisRequest.builder()
-                .profile(option.getCyclingProfile())
-                .preference(Boolean.TRUE.equals(option.getFastRoute()) ? "fastest" : "recommended")
-                .coordinates(parseCoordinates(requestDto.getStart(), requestDto.getGoal(), requestDto.getWayPoints()))
-                .steepnessDifficulty(steepnessDifficulty(option.getSkillLevel()))
-                .avoidSteps(option.getAvoidSteps())
-                .avoidFords(option.getAvoidFords())
-                .build();
+    private void snapshotRouteSummary(RouteSummary summary, String source) {
+        routeSummaryHistoryRepository.save(RouteSummaryHistory.builder()
+                .user(summary.getUser())
+                .routeSummary(summary)
+                .source(source)
+                .start(summary.getStart())
+                .goal(summary.getGoal())
+                .wayPoints(summary.getWayPoints())
+                .typeCode(summary.getTypeCode())
+                .contentId(summary.getContentId())
+                .contentTypeId(summary.getContentTypeId())
+                .locateName(summary.getLocateName())
+                .isUsed(summary.getIsUsed())
+                .cyclingProfile(summary.getCyclingProfile())
+                .fastRoute(summary.getFastRoute())
+                .avoidSteps(summary.getAvoidSteps())
+                .avoidFords(summary.getAvoidFords())
+                .skillLevel(summary.getSkillLevel())
+                .preferenceScore(summary.getPreferenceScore())
+                .extraInfoJson(summary.getExtraInfoJson())
+                .routeGeometryJson(summary.getRouteGeometryJson())
+                .restored(false)
+                .build());
     }
 
-    private List<List<Double>> parseCoordinates(String start, String goal, String wayPoints) {
-        List<List<Double>> coordinates = new ArrayList<>();
-        coordinates.add(parseCoordinate(start));
-        coordinates.addAll(parseWaypoints(wayPoints));
-        coordinates.add(parseCoordinate(goal));
-        return coordinates;
+    private void restoreRouteSummary(RouteSummary summary, RouteSummaryHistory history) {
+        summary.setStart(history.getStart());
+        summary.setGoal(history.getGoal());
+        summary.setWayPoints(defaultString(history.getWayPoints(), ""));
+        summary.setTypeCode(defaultString(history.getTypeCode(), ""));
+        summary.setContentId(defaultString(history.getContentId(), ""));
+        summary.setContentTypeId(defaultString(history.getContentTypeId(), ""));
+        summary.setLocateName(defaultString(history.getLocateName(), "출발지,도착지"));
+        summary.setIsUsed(defaultBoolean(history.getIsUsed(), true));
+        summary.setCyclingProfile(history.getCyclingProfile());
+        summary.setFastRoute(history.getFastRoute());
+        summary.setAvoidSteps(history.getAvoidSteps());
+        summary.setAvoidFords(history.getAvoidFords());
+        summary.setSkillLevel(history.getSkillLevel());
+        summary.setPreferenceScore(history.getPreferenceScore());
+        summary.setExtraInfoJson(history.getExtraInfoJson());
+        summary.setRouteGeometryJson(history.getRouteGeometryJson());
+    }
+
+    private ORSJsonResponse.Route analysisRouteFromFeature(ORSResponse.ORSFeatures feature) {
+        ORSJsonResponse.Route route = new ORSJsonResponse.Route();
+        ORSJsonResponse.Summary routeSummary = new ORSJsonResponse.Summary();
+        ORSResponse.ORSSummary summary = feature.getProperties().getSummary();
+        routeSummary.setDistance(summary.getDistance());
+        routeSummary.setDuration(summary.getDuration());
+        routeSummary.setAscent(summary.getAscent());
+        routeSummary.setDescent(summary.getDescent());
+        route.setSummary(routeSummary);
+        route.setExtras(feature.getProperties().getExtras());
+        List<ORSResponse.ORSSegment> segments = feature.getProperties().getSegments() == null
+                ? Collections.emptyList()
+                : feature.getProperties().getSegments();
+        route.setSegments(segments.stream()
+                .map(this::analysisSegmentFromGeoJson)
+                .collect(Collectors.toList()));
+        return route;
+    }
+
+    private ORSJsonResponse.Segment analysisSegmentFromGeoJson(ORSResponse.ORSSegment segment) {
+        ORSJsonResponse.Segment result = new ORSJsonResponse.Segment();
+        result.setDistance(segment.getDistance());
+        result.setDuration(segment.getDuration());
+        result.setDetourfactor(segment.getDetourfactor());
+        result.setPercentage(segment.getPercentage());
+        result.setAvgspeed(segment.getAvgspeed());
+        result.setAscent(segment.getAscent());
+        result.setDescent(segment.getDescent());
+        return result;
     }
 
     private String[][] parseLocation(String start, String goal, String wayPoints) {

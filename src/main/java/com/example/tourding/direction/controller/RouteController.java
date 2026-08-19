@@ -85,4 +85,16 @@ public class RouteController {
                 requestDto.getStart(), requestDto.getGoal());
         return resp;
     }
+
+    @PostMapping("/{routeSummaryId}/rollback")
+    @Operation(summary = "AI 경로 변경 전 이전 경로로 되돌리기")
+    public RouteGuideRespDto rollbackRoute(
+            @PathVariable Long routeSummaryId,
+            @RequestBody RouteRollbackReqDto requestDto
+    ) {
+        RouteGuideRespDto resp = routeService.rollbackRoute(routeSummaryId, requestDto.getUserId());
+        log.info("✅ [SUCCESS] rollbackRoute 호출 완료 - userId={}, routeSummaryId={}",
+                requestDto.getUserId(), routeSummaryId);
+        return resp;
+    }
 }

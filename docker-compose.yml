@@ -11,11 +11,21 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+  ors-cache:
+    image: nginx:1.27-alpine
+    container_name: tourding-ors-cache
+    restart: unless-stopped
+    volumes:
+      - ./deploy/ors-cache/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ors_cache_data:/var/cache/nginx/ors
+    expose:
+      - "80"
   app:
     build: .
     container_name: tourding-app
     depends_on:
       - mysql
+      - ors-cache
     ports:
       - "127.0.0.1:8080:8080"
     env_file:
@@ -35,6 +45,7 @@ services:
       - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL}
       - KAKAO_CLIENT_KAKAOAK=${KAKAO_CLIENT_KAKAOAK}
       - OPEN_ROUTE_SERVICE_KEY=${OPEN_ROUTE_SERVICE_KEY}
+      - OPEN_ROUTE_SERVICE_BASE_URL=http://ors-cache
       - OPEN_AI_SECRET_KEY=${OPEN_AI_SECRET_KEY}
       - OPENAI_STT_MODEL=${OPENAI_STT_MODEL:-gpt-4o-mini-transcribe}
       - OPENAI_INTENT_MODEL=${OPENAI_INTENT_MODEL:-gpt-5-mini}
@@ -50,3 +61,4 @@ services:
     restart: unless-stopped
 volumes:
   mysql_data:
+  ors_cache_data:
