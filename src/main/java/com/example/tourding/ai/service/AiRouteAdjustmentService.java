@@ -66,15 +66,17 @@ public class AiRouteAdjustmentService {
         UserRidingProfile profile = userRidingProfileRepository.findByUserId(user.getId())
                 .orElse(UserRidingProfile.builder().user(user).build());
 
-        profile.setCyclingProfile(defaultString(requestDto.getCyclingProfile(), "cycling-regular"));
-        profile.setSkillLevel(defaultString(requestDto.getSkillLevel(), "BEGINNER"));
-        profile.setFastRoute(defaultBoolean(requestDto.getFastRoute(), true));
-        profile.setAvoidSteps(defaultBoolean(requestDto.getAvoidSteps(), true));
-        profile.setAvoidFords(defaultBoolean(requestDto.getAvoidFords(), true));
-        profile.setAvoidHills(defaultBoolean(requestDto.getAvoidHills(), false));
-        profile.setPreferPaved(defaultBoolean(requestDto.getPreferPaved(), true));
-        profile.setPreferBikeRoad(defaultBoolean(requestDto.getPreferBikeRoad(), true));
-        profile.setAvoidMainRoad(defaultBoolean(requestDto.getAvoidMainRoad(), false));
+        RouteOptionDto routeOption = requestDto.getRouteOption();
+        RouteOptionDto defaults = RouteOptionDto.defaults();
+        profile.setCyclingProfile(defaultString(routeOption == null ? null : routeOption.getCyclingProfile(), defaults.getCyclingProfile()));
+        profile.setSkillLevel(defaultString(routeOption == null ? null : routeOption.getSkillLevel(), defaults.getSkillLevel()));
+        profile.setFastRoute(defaultBoolean(routeOption == null ? null : routeOption.getFastRoute(), defaults.getFastRoute()));
+        profile.setAvoidSteps(defaultBoolean(routeOption == null ? null : routeOption.getAvoidSteps(), defaults.getAvoidSteps()));
+        profile.setAvoidFords(defaultBoolean(routeOption == null ? null : routeOption.getAvoidFords(), defaults.getAvoidFords()));
+        profile.setAvoidHills(false);
+        profile.setPreferPaved(true);
+        profile.setPreferBikeRoad(true);
+        profile.setAvoidMainRoad(false);
 
         return userRidingProfileRepository.save(profile);
     }

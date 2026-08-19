@@ -2,6 +2,7 @@ package com.example.tourding.ai.controller;
 
 import com.example.tourding.ai.dto.*;
 import com.example.tourding.ai.entity.UserRidingProfile;
+import com.example.tourding.direction.dto.RouteOptionDto;
 import com.example.tourding.ai.service.AiRouteAdjustmentService;
 import com.example.tourding.direction.dto.RouteGuideRespDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,18 +56,17 @@ public class AiRouteController {
     @Operation(summary = "AI 경로 조정용 사용자 라이딩 프로필 저장")
     public Map<String, Object> saveRidingProfile(@RequestBody UserRidingProfileReqDto requestDto) {
         UserRidingProfile profile = aiRouteAdjustmentService.saveRidingProfile(requestDto);
+        RouteOptionDto routeOption = RouteOptionDto.builder()
+                .cyclingProfile(profile.getCyclingProfile())
+                .fastRoute(profile.getFastRoute())
+                .avoidSteps(profile.getAvoidSteps())
+                .avoidFords(profile.getAvoidFords())
+                .skillLevel(profile.getSkillLevel())
+                .build();
         return Map.ofEntries(
                 Map.entry("profileId", profile.getId()),
                 Map.entry("userId", requestDto.getUserId()),
-                Map.entry("cyclingProfile", profile.getCyclingProfile()),
-                Map.entry("skillLevel", profile.getSkillLevel()),
-                Map.entry("fastRoute", profile.getFastRoute()),
-                Map.entry("avoidSteps", profile.getAvoidSteps()),
-                Map.entry("avoidFords", profile.getAvoidFords()),
-                Map.entry("avoidHills", profile.getAvoidHills()),
-                Map.entry("preferPaved", profile.getPreferPaved()),
-                Map.entry("preferBikeRoad", profile.getPreferBikeRoad()),
-                Map.entry("avoidMainRoad", profile.getAvoidMainRoad())
+                Map.entry("routeOption", routeOption)
         );
     }
 }

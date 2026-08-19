@@ -1,14 +1,13 @@
-package com.example.tourding.ai.dto;
+package com.example.tourding.user.dto.request;
 
 import com.example.tourding.direction.dto.RouteOptionDto;
 import lombok.*;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class UserRidingProfileReqDto {
-    private Long userId;
+public class UserRidingProfileUpdateReqDto {
     private RouteOptionDto routeOption;
 }

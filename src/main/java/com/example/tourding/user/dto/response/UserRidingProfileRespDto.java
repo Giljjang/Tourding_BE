@@ -1,5 +1,6 @@
 package com.example.tourding.user.dto.response;
 
+import com.example.tourding.direction.dto.RouteOptionDto;
 import lombok.*;
 
 @Getter
@@ -9,9 +10,5 @@ import lombok.*;
 @Builder
 public class UserRidingProfileRespDto {
     private Long userId;
-    private String cyclingProfile;
-    private Boolean fastRoute;
-    private Boolean avoidSteps;
-    private Boolean avoidFords;
-    private String skillLevel;
+    private RouteOptionDto routeOption;
 }

@@ -1,8 +1,8 @@
 package com.example.tourding.user.controller;
 
-import com.example.tourding.ai.dto.UserRidingProfileReqDto;
 import com.example.tourding.external.apple.service.AppleAuthService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
+import com.example.tourding.user.dto.request.UserRidingProfileUpdateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserRidingProfileRespDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
@@ -56,7 +56,7 @@ public class UserController {
     @PutMapping("/{userId}/riding-profile")
     public ResponseEntity<UserRidingProfileRespDto> updateRidingProfile(
             @PathVariable Long userId,
-            @RequestBody UserRidingProfileReqDto requestDto
+            @RequestBody UserRidingProfileUpdateReqDto requestDto
     ) {
         return ResponseEntity.ok(userService.updateRidingProfile(userId, requestDto));
     }

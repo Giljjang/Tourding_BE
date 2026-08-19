@@ -1,12 +1,13 @@
 package com.example.tourding.user.service;
 
-import com.example.tourding.ai.dto.UserRidingProfileReqDto;
 import com.example.tourding.ai.entity.UserRidingProfile;
 import com.example.tourding.ai.repository.UserRidingProfileRepository;
+import com.example.tourding.direction.dto.RouteOptionDto;
 import com.example.tourding.direction.entity.RouteSummary;
 import com.example.tourding.direction.repository.RouteSummaryRepository;
 import com.example.tourding.direction.service.RouteService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
+import com.example.tourding.user.dto.request.UserRidingProfileUpdateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserRidingProfileRespDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
@@ -87,20 +88,12 @@ public class UserService implements UserServiceImpl{
     }
 
     @Transactional
-    public UserRidingProfileRespDto updateRidingProfile(Long userId, UserRidingProfileReqDto requestDto) {
+    public UserRidingProfileRespDto updateRidingProfile(Long userId, UserRidingProfileUpdateReqDto requestDto) {
         User user = getUser(userId);
         UserRidingProfile profile = userRidingProfileRepository.findByUserId(userId)
                 .orElse(UserRidingProfile.builder().user(user).build());
 
-        profile.setCyclingProfile(defaultString(requestDto.getCyclingProfile(), "cycling-regular"));
-        profile.setFastRoute(defaultBoolean(requestDto.getFastRoute(), true));
-        profile.setAvoidSteps(defaultBoolean(requestDto.getAvoidSteps(), true));
-        profile.setAvoidFords(defaultBoolean(requestDto.getAvoidFords(), true));
-        profile.setSkillLevel(defaultString(requestDto.getSkillLevel(), "BEGINNER"));
-        profile.setAvoidHills(defaultBoolean(requestDto.getAvoidHills(), false));
-        profile.setPreferPaved(defaultBoolean(requestDto.getPreferPaved(), true));
-        profile.setPreferBikeRoad(defaultBoolean(requestDto.getPreferBikeRoad(), true));
-        profile.setAvoidMainRoad(defaultBoolean(requestDto.getAvoidMainRoad(), false));
+        applyRouteOption(profile, requestDto == null ? null : requestDto.getRouteOption());
 
         return toRidingProfileDto(userRidingProfileRepository.save(profile));
     }
@@ -139,12 +132,27 @@ public class UserService implements UserServiceImpl{
     private UserRidingProfileRespDto toRidingProfileDto(UserRidingProfile profile) {
         return UserRidingProfileRespDto.builder()
                 .userId(profile.getUser().getId())
-                .cyclingProfile(defaultString(profile.getCyclingProfile(), "cycling-regular"))
-                .fastRoute(defaultBoolean(profile.getFastRoute(), true))
-                .avoidSteps(defaultBoolean(profile.getAvoidSteps(), true))
-                .avoidFords(defaultBoolean(profile.getAvoidFords(), true))
-                .skillLevel(defaultString(profile.getSkillLevel(), "BEGINNER"))
+                .routeOption(RouteOptionDto.builder()
+                        .cyclingProfile(defaultString(profile.getCyclingProfile(), "cycling-regular"))
+                        .fastRoute(defaultBoolean(profile.getFastRoute(), true))
+                        .avoidSteps(defaultBoolean(profile.getAvoidSteps(), true))
+                        .avoidFords(defaultBoolean(profile.getAvoidFords(), true))
+                        .skillLevel(defaultString(profile.getSkillLevel(), "BEGINNER"))
+                        .build())
                 .build();
+    }
+
+    private void applyRouteOption(UserRidingProfile profile, RouteOptionDto routeOption) {
+        RouteOptionDto defaults = RouteOptionDto.defaults();
+        profile.setCyclingProfile(defaultString(routeOption == null ? null : routeOption.getCyclingProfile(), defaults.getCyclingProfile()));
+        profile.setFastRoute(defaultBoolean(routeOption == null ? null : routeOption.getFastRoute(), defaults.getFastRoute()));
+        profile.setAvoidSteps(defaultBoolean(routeOption == null ? null : routeOption.getAvoidSteps(), defaults.getAvoidSteps()));
+        profile.setAvoidFords(defaultBoolean(routeOption == null ? null : routeOption.getAvoidFords(), defaults.getAvoidFords()));
+        profile.setSkillLevel(defaultString(routeOption == null ? null : routeOption.getSkillLevel(), defaults.getSkillLevel()));
+        profile.setAvoidHills(false);
+        profile.setPreferPaved(true);
+        profile.setPreferBikeRoad(true);
+        profile.setAvoidMainRoad(false);
     }
 
     private String defaultString(String value, String defaultValue) {
