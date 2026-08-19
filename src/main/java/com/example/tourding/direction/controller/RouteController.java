@@ -46,7 +46,7 @@ public class RouteController {
 
     @PostMapping("/recommendations")
     @Operation(summary = "사용자 라이딩 정보 기반 추천 경로 3개 조회")
-    public RouteRecommendationsRespDto getRouteRecommendations(@RequestBody RouteRequestDto requestDto) {
+    public RouteRecommendationsRespDto getRouteRecommendations(@RequestBody RouteRecommendationReqDto requestDto) {
         RouteRecommendationsRespDto resp = routeService.getRouteRecommendations(requestDto);
         log.info("✅ [SUCCESS] getRouteRecommendations 호출 완료 - userId={}, 반환 개수={}",
                 requestDto.getUserId(), resp.getRoutes() == null ? 0 : resp.getRoutes().size());

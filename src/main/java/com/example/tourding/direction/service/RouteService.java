@@ -57,7 +57,11 @@ public class RouteService implements RouteServiceImpl {
     }
 
     @Transactional
-    public RouteRecommendationsRespDto getRouteRecommendations(RouteRequestDto requestDto) {
+    public RouteRecommendationsRespDto getRouteRecommendations(RouteRecommendationReqDto requestDto) {
+        return getRouteRecommendations(toRouteRequestDto(requestDto));
+    }
+
+    private RouteRecommendationsRespDto getRouteRecommendations(RouteRequestDto requestDto) {
         User user = userRepository.findById(requestDto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
         RouteOptionDto baseOption = resolveRouteOption(user.getId(), requestDto.getRouteOption());
@@ -82,6 +86,16 @@ public class RouteService implements RouteServiceImpl {
 
         return RouteRecommendationsRespDto.builder()
                 .routes(results.stream().map(RouteBuildResult::response).collect(Collectors.toList()))
+                .build();
+    }
+
+    private RouteRequestDto toRouteRequestDto(RouteRecommendationReqDto requestDto) {
+        return RouteRequestDto.builder()
+                .userId(requestDto.getUserId())
+                .start(requestDto.getStart())
+                .goal(requestDto.getGoal())
+                .isUsed(requestDto.getIsUsed())
+                .routeOption(requestDto.getRouteOption())
                 .build();
     }
 

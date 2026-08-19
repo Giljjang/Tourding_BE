@@ -4,9 +4,13 @@ import com.example.tourding.ai.dto.*;
 import com.example.tourding.ai.service.AiRouteAdjustmentService;
 import com.example.tourding.direction.dto.RouteGuideRespDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,14 +31,22 @@ public class AiRouteController {
         return response;
     }
 
-    @PostMapping("/routes/adjustments/voice")
+    @PostMapping(value = "/routes/adjustments/voice", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "음성 명령으로 남은 경로 재조정")
     public RouteGuideRespDto adjustRouteByVoice(
             @RequestParam Long userId,
             @RequestParam Long routeSummaryId,
             @RequestParam Double currentLon,
             @RequestParam Double currentLat,
-            @RequestPart MultipartFile audio
+            @Parameter(
+                    description = "음성 파일",
+                    required = true,
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                            schema = @Schema(type = "string", format = "binary")
+                    )
+            )
+            @RequestPart("audio") MultipartFile audio
     ) {
         RouteGuideRespDto response = aiRouteAdjustmentService.adjustByVoice(
                 userId,
