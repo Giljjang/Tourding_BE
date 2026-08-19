@@ -3,6 +3,8 @@ package com.example.tourding.external.open_routes_service;
 import com.example.tourding.direction.dto.RouteOptionDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,7 @@ import java.util.*;
 public class ORSCilent {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final CacheManager cacheManager;
 
     @Value("${open.route.service.key}")
     private String routeServiceKey;
@@ -28,8 +31,42 @@ public class ORSCilent {
     }
 
     public ORSResponse getORSDirection(String start, String goal, String wayPoints, RouteOptionDto routeOption) {
+        RouteOptionDto resolvedOption = routeOption == null ? RouteOptionDto.defaults() : routeOption;
+        String cacheKey = String.join("|",
+                defaultString(start),
+                defaultString(goal),
+                defaultString(wayPoints),
+                defaultString(resolvedOption.getCyclingProfile()),
+                String.valueOf(Boolean.TRUE.equals(resolvedOption.getFastRoute())),
+                String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidSteps())),
+                String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFords())),
+                defaultString(resolvedOption.getSkillLevel())
+        );
+        Cache cache = cacheManager.getCache("orsDirections");
+        if (cache != null) {
+            try {
+                ORSResponse cached = cache.get(cacheKey, ORSResponse.class);
+                if (cached != null) {
+                    return cached;
+                }
+            } catch (Exception ignored) {
+                // Redis 캐시 장애는 경로 생성 실패로 전파하지 않는다.
+            }
+        }
+
+        ORSResponse response = fetchORSDirection(start, goal, wayPoints, resolvedOption);
+        if (cache != null) {
+            try {
+                cache.put(cacheKey, response);
+            } catch (Exception ignored) {
+                // Redis 캐시 장애는 경로 생성 실패로 전파하지 않는다.
+            }
+        }
+        return response;
+    }
+
+    private ORSResponse fetchORSDirection(String start, String goal, String wayPoints, RouteOptionDto resolvedOption) {
         try {
-            RouteOptionDto resolvedOption = routeOption == null ? RouteOptionDto.defaults() : routeOption;
             String profile = resolvedOption.getCyclingProfile() == null || resolvedOption.getCyclingProfile().isBlank()
                     ? "cycling-regular"
                     : resolvedOption.getCyclingProfile();
@@ -90,6 +127,10 @@ public class ORSCilent {
         } catch (Exception e) {
             throw new RuntimeException("OpenRouteService 호출 실패", e);
         }
+    }
+
+    private String defaultString(String value) {
+        return value == null ? "" : value.trim();
     }
 
     public ORSJsonResponse getRouteAnalysis(ORSRouteAnalysisRequest request) {
