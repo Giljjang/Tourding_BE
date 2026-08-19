@@ -1,7 +1,5 @@
 package com.example.tourding.user.service;
 
-import com.example.tourding.ai.entity.UserRidingProfile;
-import com.example.tourding.ai.repository.UserRidingProfileRepository;
 import com.example.tourding.direction.dto.RouteOptionDto;
 import com.example.tourding.direction.entity.RouteSummary;
 import com.example.tourding.direction.repository.RouteSummaryRepository;
@@ -12,7 +10,9 @@ import com.example.tourding.user.dto.request.UserUpdateReqDto;
 import com.example.tourding.user.dto.response.UserRidingProfileRespDto;
 import com.example.tourding.user.dto.response.UserResponseDto;
 import com.example.tourding.user.entity.User;
+import com.example.tourding.user.entity.UserRidingProfile;
 import com.example.tourding.user.repository.UserRepository;
+import com.example.tourding.user.repository.UserRidingProfileRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

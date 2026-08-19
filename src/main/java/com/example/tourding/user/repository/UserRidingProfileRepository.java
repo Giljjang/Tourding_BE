@@ -1,6 +1,6 @@
-package com.example.tourding.ai.repository;
+package com.example.tourding.user.repository;
 
-import com.example.tourding.ai.entity.UserRidingProfile;
+import com.example.tourding.user.entity.UserRidingProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,6 +1,5 @@
-package com.example.tourding.ai.entity;
+package com.example.tourding.user.entity;
 
-import com.example.tourding.user.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 

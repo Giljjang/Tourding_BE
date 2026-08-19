@@ -1,8 +1,6 @@
 package com.example.tourding.ai.controller;
 
 import com.example.tourding.ai.dto.*;
-import com.example.tourding.ai.entity.UserRidingProfile;
-import com.example.tourding.direction.dto.RouteOptionDto;
 import com.example.tourding.ai.service.AiRouteAdjustmentService;
 import com.example.tourding.direction.dto.RouteGuideRespDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,8 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/ai")
@@ -50,23 +46,5 @@ public class AiRouteController {
         log.info("✅ [SUCCESS] AI voice adjustment - userId={}, routeSummaryId={}",
                 userId, routeSummaryId);
         return response;
-    }
-
-    @PostMapping("/riding-profile")
-    @Operation(summary = "AI 경로 조정용 사용자 라이딩 프로필 저장")
-    public Map<String, Object> saveRidingProfile(@RequestBody UserRidingProfileReqDto requestDto) {
-        UserRidingProfile profile = aiRouteAdjustmentService.saveRidingProfile(requestDto);
-        RouteOptionDto routeOption = RouteOptionDto.builder()
-                .cyclingProfile(profile.getCyclingProfile())
-                .fastRoute(profile.getFastRoute())
-                .avoidSteps(profile.getAvoidSteps())
-                .avoidFords(profile.getAvoidFords())
-                .skillLevel(profile.getSkillLevel())
-                .build();
-        return Map.ofEntries(
-                Map.entry("profileId", profile.getId()),
-                Map.entry("userId", requestDto.getUserId()),
-                Map.entry("routeOption", routeOption)
-        );
     }
 }

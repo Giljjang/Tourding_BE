@@ -2,9 +2,7 @@ package com.example.tourding.ai.service;
 
 import com.example.tourding.ai.dto.*;
 import com.example.tourding.ai.entity.AiRouteRequest;
-import com.example.tourding.ai.entity.UserRidingProfile;
 import com.example.tourding.ai.repository.AiRouteRequestRepository;
-import com.example.tourding.ai.repository.UserRidingProfileRepository;
 import com.example.tourding.direction.dto.RouteGuideRespDto;
 import com.example.tourding.direction.dto.RouteOptionDto;
 import com.example.tourding.direction.entity.RouteSummary;
@@ -29,7 +27,6 @@ public class AiRouteAdjustmentService {
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
     private final AiRouteRequestRepository aiRouteRequestRepository;
-    private final UserRidingProfileRepository userRidingProfileRepository;
 
     @Transactional
     public RouteGuideRespDto adjustByText(AiRouteAdjustReqDto requestDto) {
@@ -56,29 +53,6 @@ public class AiRouteAdjustmentService {
                 .build();
 
         return adjust(requestDto, transcript, "VOICE", sttLatencyMs);
-    }
-
-    @Transactional
-    public UserRidingProfile saveRidingProfile(UserRidingProfileReqDto requestDto) {
-        User user = userRepository.findById(requestDto.getUserId())
-                .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
-
-        UserRidingProfile profile = userRidingProfileRepository.findByUserId(user.getId())
-                .orElse(UserRidingProfile.builder().user(user).build());
-
-        RouteOptionDto routeOption = requestDto.getRouteOption();
-        RouteOptionDto defaults = RouteOptionDto.defaults();
-        profile.setCyclingProfile(defaultString(routeOption == null ? null : routeOption.getCyclingProfile(), defaults.getCyclingProfile()));
-        profile.setSkillLevel(defaultString(routeOption == null ? null : routeOption.getSkillLevel(), defaults.getSkillLevel()));
-        profile.setFastRoute(defaultBoolean(routeOption == null ? null : routeOption.getFastRoute(), defaults.getFastRoute()));
-        profile.setAvoidSteps(defaultBoolean(routeOption == null ? null : routeOption.getAvoidSteps(), defaults.getAvoidSteps()));
-        profile.setAvoidFords(defaultBoolean(routeOption == null ? null : routeOption.getAvoidFords(), defaults.getAvoidFords()));
-        profile.setAvoidHills(false);
-        profile.setPreferPaved(true);
-        profile.setPreferBikeRoad(true);
-        profile.setAvoidMainRoad(false);
-
-        return userRidingProfileRepository.save(profile);
     }
 
     private RouteGuideRespDto adjust(AiRouteAdjustReqDto requestDto, String transcript, String inputType, Integer sttLatencyMs) {
@@ -160,11 +134,4 @@ public class AiRouteAdjustmentService {
         return builder.build();
     }
 
-    private String defaultString(String value, String defaultValue) {
-        return value == null || value.isBlank() ? defaultValue : value;
-    }
-
-    private Boolean defaultBoolean(Boolean value, Boolean defaultValue) {
-        return value == null ? defaultValue : value;
-    }
 }

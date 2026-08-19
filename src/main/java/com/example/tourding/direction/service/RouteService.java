@@ -1,7 +1,5 @@
 package com.example.tourding.direction.service;
 
-import com.example.tourding.ai.entity.UserRidingProfile;
-import com.example.tourding.ai.repository.UserRidingProfileRepository;
 import com.example.tourding.ai.service.RouteScoringService;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.RouteSummary;
@@ -18,7 +16,9 @@ import com.example.tourding.tourApi.dto.SearchAreaRespDto;
 import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.example.tourding.tourApi.service.TourApiService;
 import com.example.tourding.user.entity.User;
+import com.example.tourding.user.entity.UserRidingProfile;
 import com.example.tourding.user.repository.UserRepository;
+import com.example.tourding.user.repository.UserRidingProfileRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
