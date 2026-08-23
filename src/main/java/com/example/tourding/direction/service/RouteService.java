@@ -1,5 +1,7 @@
 package com.example.tourding.direction.service;
 
+import com.example.tourding.ai.dto.AiRouteRecommendationIntentDto;
+import com.example.tourding.ai.service.AiRouteRecommendationIntentService;
 import com.example.tourding.ai.service.RouteScoringService;
 import com.example.tourding.direction.dto.*;
 import com.example.tourding.direction.entity.RouteSummary;
@@ -13,6 +15,8 @@ import com.example.tourding.external.open_routes_service.ORSJsonResponse;
 import com.example.tourding.external.open_routes_service.ORSResponse;
 import com.example.tourding.external.riding_course.RidingCourseClient;
 import com.example.tourding.external.riding_course.RidingCourseResponse;
+import com.example.tourding.enums.ErrorCode;
+import com.example.tourding.exception.CustomException;
 import com.example.tourding.tourApi.dto.SearchAreaRespDto;
 import com.example.tourding.tourApi.dto.SearchLocationDto;
 import com.example.tourding.tourApi.service.TourApiService;
@@ -45,6 +49,7 @@ public class RouteService implements RouteServiceImpl {
     private final RouteSummaryHistoryRepository routeSummaryHistoryRepository;
     private final UserRidingProfileRepository userRidingProfileRepository;
     private final RouteScoringService routeScoringService;
+    private final AiRouteRecommendationIntentService aiRouteRecommendationIntentService;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -62,23 +67,24 @@ public class RouteService implements RouteServiceImpl {
 
     @Transactional
     public RouteRecommendationsRespDto getRouteRecommendations(RouteRecommendationReqDto requestDto) {
-        return getRouteRecommendations(toRouteRequestDto(requestDto));
+        RecommendationDirective directive = recommendationDirective(requestDto);
+        return getRouteRecommendations(toRouteRequestDto(requestDto, directive), directive);
     }
 
     private RouteRecommendationsRespDto getRouteRecommendations(RouteRequestDto requestDto) {
+        return getRouteRecommendations(requestDto, RecommendationDirective.empty());
+    }
+
+    private RouteRecommendationsRespDto getRouteRecommendations(RouteRequestDto requestDto, RecommendationDirective directive) {
         User user = userRepository.findById(requestDto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));
-        RouteOptionDto baseOption = resolveRouteOption(user.getId(), requestDto.getRouteOption());
+        RouteOptionDto baseOption = applyDirectiveToOption(resolveRouteOption(user.getId(), requestDto.getRouteOption()), directive);
 
-        List<RouteCandidateDraft> drafts = List.of(
-                new RouteCandidateDraft(requestDto, baseOption),
-                new RouteCandidateDraft(requestDto, conservativeOption(baseOption)),
-                new RouteCandidateDraft(requestDto, fastOption(baseOption))
-        );
+        List<RouteCandidateDraft> drafts = candidateDrafts(requestDto, baseOption, directive);
 
         List<RouteBuildResult> results = drafts.stream()
                 .map(draft -> CompletableFuture.supplyAsync(
-                        () -> buildRouteResponse(draft.requestDto(), draft.option(), null, true)
+                        () -> buildRouteResponse(draft.requestDto(), draft.option(), null, true, directive)
                 ))
                 .map(CompletableFuture::join)
                 .collect(Collectors.toList());
@@ -95,12 +101,17 @@ public class RouteService implements RouteServiceImpl {
                 .build();
     }
 
-    private RouteRequestDto toRouteRequestDto(RouteRecommendationReqDto requestDto) {
+    private RouteRequestDto toRouteRequestDto(RouteRecommendationReqDto requestDto, RecommendationDirective directive) {
         return RouteRequestDto.builder()
                 .userId(requestDto.getUserId())
                 .start(requestDto.getStart())
                 .goal(requestDto.getGoal())
+                .wayPoints(mergedWayPoints("", directive.wayPoints()))
+                .locateName(locateNameForRecommendation(directive.wayPointNames()))
+                .typeCode(typeCodeForRecommendation(directive.wayPointNames()))
                 .isUsed(requestDto.getIsUsed())
+                .userIntentText(requestDto.getUserIntentText())
+                .maxDistanceKm(directive.maxDistanceKm())
                 .routeOption(requestDto.getRouteOption())
                 .build();
     }
@@ -317,6 +328,16 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private RouteBuildResult buildRouteResponse(RouteRequestDto requestDto, RouteOptionDto option, Double fixedScore, boolean includeAnalysis) {
+        return buildRouteResponse(requestDto, option, fixedScore, includeAnalysis, RecommendationDirective.empty());
+    }
+
+    private RouteBuildResult buildRouteResponse(
+            RouteRequestDto requestDto,
+            RouteOptionDto option,
+            Double fixedScore,
+            boolean includeAnalysis,
+            RecommendationDirective directive
+    ) {
         RouteOptionDto resolvedOption = normalizeOption(option);
         ORSResponse orsResponse = orsCilent.getORSDirection(
                 requestDto.getStart(),
@@ -330,7 +351,10 @@ public class RouteService implements RouteServiceImpl {
         ORSJsonResponse.Route analysisRoute = includeAnalysis ? analysisRouteFromFeature(feature) : null;
 
         double score = fixedScore == null && analysisRoute != null
-                ? routeScoringService.score(analysisRoute, weightsFor(resolvedOption)).total()
+                ? adjustedScore(routeScoringService.score(analysisRoute, weightsFor(resolvedOption, directive)).total(),
+                analysisRoute,
+                summary.getDistance(),
+                directive)
                 : defaultDouble(fixedScore, 0.0);
 
         List<String> locationNames = splitCsv(effectiveLocateName(requestDto));
@@ -344,6 +368,11 @@ public class RouteService implements RouteServiceImpl {
                 .ascent(analysisRoute == null || analysisRoute.getSummary() == null ? 0.0 : analysisRoute.getSummary().getAscent())
                 .descent(analysisRoute == null || analysisRoute.getSummary() == null ? 0.0 : analysisRoute.getSummary().getDescent())
                 .uphillLevel(uphillLevel(analysisRoute))
+                .difficultyLevel(difficultyLevel(analysisRoute, summary.getDistance()))
+                .surfaceSummary(surfaceSummary(analysisRoute))
+                .hasConstruction(hasExtraValue(analysisRoute, "waytype", 10))
+                .hasSteps(hasExtraValue(analysisRoute, "waytype", 8))
+                .hasIce(hasExtraValue(analysisRoute, "surface", 13))
                 .preferenceScore(score)
                 .appliedOption(resolvedOption)
                 .guides(convertToRouteGuides(orsResponse, locationNames, locationCodes))
@@ -641,6 +670,113 @@ public class RouteService implements RouteServiceImpl {
                 .build());
     }
 
+    private RecommendationDirective recommendationDirective(RouteRecommendationReqDto requestDto) {
+        AiRouteRecommendationIntentDto intent = aiRouteRecommendationIntentService.classify(requestDto.getUserIntentText());
+        if (requestDto.getUserIntentText() != null
+                && !requestDto.getUserIntentText().isBlank()
+                && !intent.isSupported()) {
+            throw new CustomException(ErrorCode.AI_RECOMMENDATION_UNSUPPORTED_INTENT);
+        }
+
+        Double maxDistanceKm = intent.getMaxDistanceKm() == null ? requestDto.getMaxDistanceKm() : intent.getMaxDistanceKm();
+        if (maxDistanceKm != null && maxDistanceKm <= 0) {
+            throw new CustomException(ErrorCode.AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT);
+        }
+
+        List<String> wayPointNames = intent.getWaypointNames() == null ? List.of() : intent.getWaypointNames();
+        List<String> wayPoints = geocodeWayPointNames(wayPointNames);
+
+        return new RecommendationDirective(
+                maxDistanceKm,
+                intent.getTargetDifficulty(),
+                Boolean.TRUE.equals(intent.getAvoidConstruction()),
+                Boolean.TRUE.equals(intent.getAvoidSteps()),
+                Boolean.TRUE.equals(intent.getAvoidIce()),
+                intent.getWeightUpdate(),
+                wayPoints,
+                wayPointNames
+        );
+    }
+
+    private List<String> geocodeWayPointNames(List<String> wayPointNames) {
+        if (wayPointNames == null || wayPointNames.isEmpty()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (String name : wayPointNames) {
+            KakaoSearchResponse response = kakaoClient.kakoSearchByName(name);
+            if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
+                throw new CustomException(ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND);
+            }
+            KakaoSearchResponse.Document document = response.getDocuments().get(0);
+            result.add(document.getX() + "," + document.getY());
+        }
+        return result;
+    }
+
+    private RouteOptionDto applyDirectiveToOption(RouteOptionDto option, RecommendationDirective directive) {
+        RouteOptionDto normalized = normalizeOption(option);
+        String skillLevel = directive.targetDifficulty() == null
+                ? normalized.getSkillLevel()
+                : skillLevelForDifficulty(directive.targetDifficulty());
+        return RouteOptionDto.builder()
+                .cyclingProfile(normalized.getCyclingProfile())
+                .fastRoute(normalized.getFastRoute())
+                .avoidSteps(directive.avoidSteps() || Boolean.TRUE.equals(normalized.getAvoidSteps()))
+                .avoidFords(normalized.getAvoidFords())
+                .skillLevel(skillLevel)
+                .build();
+    }
+
+    private String skillLevelForDifficulty(Integer difficulty) {
+        return switch (difficulty == null ? 1 : difficulty) {
+            case 2 -> "NORMAL";
+            case 3 -> "ADVANCED";
+            case 4 -> "PRO";
+            default -> "BEGINNER";
+        };
+    }
+
+    private List<RouteCandidateDraft> candidateDrafts(
+            RouteRequestDto requestDto,
+            RouteOptionDto baseOption,
+            RecommendationDirective directive
+    ) {
+        return List.of(
+                new RouteCandidateDraft(requestDto, baseOption),
+                new RouteCandidateDraft(requestDto, conservativeOption(baseOption)),
+                new RouteCandidateDraft(requestDto, fastOption(baseOption))
+        );
+    }
+
+    private String mergedWayPoints(String baseWayPoints, List<String> additionalWayPoints) {
+        List<String> points = new ArrayList<>();
+        if (baseWayPoints != null && !baseWayPoints.isBlank()) {
+            points.addAll(Arrays.stream(baseWayPoints.split("\\|"))
+                    .map(String::trim)
+                    .filter(value -> !value.isBlank())
+                    .toList());
+        }
+        if (additionalWayPoints != null) {
+            points.addAll(additionalWayPoints);
+        }
+        return String.join("|", points);
+    }
+
+    private String locateNameForRecommendation(List<String> wayPointNames) {
+        if (wayPointNames == null || wayPointNames.isEmpty()) {
+            return "출발지,도착지";
+        }
+        return "출발지," + String.join(",", wayPointNames) + ",도착지";
+    }
+
+    private String typeCodeForRecommendation(List<String> wayPointNames) {
+        if (wayPointNames == null || wayPointNames.isEmpty()) {
+            return "출발지,도착지";
+        }
+        return "출발지," + wayPointNames.stream().map(name -> "경유지").collect(Collectors.joining(",")) + ",도착지";
+    }
+
     private RouteOptionDto mergeOption(RouteOptionDto base, RouteOptionDto override) {
         RouteOptionDto defaults = normalizeOption(base);
         if (override == null) {
@@ -698,6 +834,13 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private Map<String, Double> weightsFor(RouteOptionDto option) {
+        return weightsFor(option, RecommendationDirective.empty());
+    }
+
+    private Map<String, Double> weightsFor(RouteOptionDto option, RecommendationDirective directive) {
+        if (directive.weights() != null && !directive.weights().isEmpty()) {
+            return directive.weights();
+        }
         Map<String, Double> weights = new HashMap<>();
         weights.put("comfort", 0.25);
         weights.put("flatness", 0.30);
@@ -724,6 +867,34 @@ public class RouteService implements RouteServiceImpl {
         return normalizeWeights(weights);
     }
 
+    private double adjustedScore(
+            double baseScore,
+            ORSJsonResponse.Route route,
+            double distance,
+            RecommendationDirective directive
+    ) {
+        double score = baseScore;
+        if (directive.targetDifficulty() != null) {
+            score -= Math.abs(difficultyLevel(route, distance) - directive.targetDifficulty()) * 0.08;
+        }
+        if (directive.maxDistanceKm() != null) {
+            double maxDistance = directive.maxDistanceKm() * 1000.0;
+            if (distance > maxDistance) {
+                score -= Math.min(0.40, ((distance - maxDistance) / maxDistance) * 0.50);
+            }
+        }
+        if (directive.avoidConstruction() && hasExtraValue(route, "waytype", 10)) {
+            score -= 0.35;
+        }
+        if (directive.avoidSteps() && hasExtraValue(route, "waytype", 8)) {
+            score -= 0.35;
+        }
+        if (directive.avoidIce() && hasExtraValue(route, "surface", 13)) {
+            score -= 0.35;
+        }
+        return round4(Math.max(0.0, score));
+    }
+
     private Map<String, Double> normalizeWeights(Map<String, Double> weights) {
         double total = weights.values().stream().mapToDouble(Double::doubleValue).sum();
         if (total <= 0) {
@@ -743,17 +914,132 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private String uphillLevel(ORSJsonResponse.Route route) {
-        if (route == null || route.getSummary() == null) {
+        if (route == null) {
             return "LOW";
         }
-        double ascent = route.getSummary().getAscent();
-        if (ascent >= 80) {
+        double uphill = summaryAmount(route, "steepness", value -> value > 0);
+        double severe = summaryAmount(route, "steepness", value -> value >= 3);
+        if (uphill >= 30.0 || severe >= 5.0) {
             return "HIGH";
         }
-        if (ascent >= 30) {
+        if (uphill >= 15.0 || severe >= 2.0) {
             return "MEDIUM";
         }
         return "LOW";
+    }
+
+    private Integer difficultyLevel(ORSJsonResponse.Route route, double distance) {
+        double distanceKm = distance / 1000.0;
+        double uphill = summaryAmount(route, "steepness", value -> value > 0);
+        double severeUphill = summaryAmount(route, "steepness", value -> value >= 3);
+        double unpaved = Math.max(
+                summaryAmount(route, "waytype", value -> value == 5),
+                summaryAmount(route, "surface", value -> Set.of(2, 10, 11, 12, 15, 17).contains(value))
+        );
+
+        double score = distanceScore(distanceKm) * 0.25
+                + uphillScore(uphill) * 0.35
+                + severeUphillScore(severeUphill) * 0.25
+                + unpavedScore(unpaved) * 0.15;
+
+        if (score < 0.75) {
+            return 1;
+        }
+        if (score < 1.50) {
+            return 2;
+        }
+        if (score < 2.35) {
+            return 3;
+        }
+        return 4;
+    }
+
+    private double distanceScore(double distanceKm) {
+        if (distanceKm < 15) return 0;
+        if (distanceKm < 35) return 1;
+        if (distanceKm < 60) return 2;
+        return 3;
+    }
+
+    private double uphillScore(double uphillAmount) {
+        if (uphillAmount < 10) return 0;
+        if (uphillAmount < 20) return 1;
+        if (uphillAmount < 35) return 2;
+        return 3;
+    }
+
+    private double severeUphillScore(double severeUphillAmount) {
+        if (severeUphillAmount < 1) return 0;
+        if (severeUphillAmount < 4) return 1;
+        if (severeUphillAmount < 8) return 2;
+        return 3;
+    }
+
+    private double unpavedScore(double unpavedAmount) {
+        if (unpavedAmount < 5) return 0;
+        if (unpavedAmount < 15) return 1;
+        if (unpavedAmount < 30) return 2;
+        return 3;
+    }
+
+    private List<RouteSurfaceSummaryDto> surfaceSummary(ORSJsonResponse.Route route) {
+        EnumMap<RouteSurfaceType, double[]> aggregates = new EnumMap<>(RouteSurfaceType.class);
+        for (RouteSurfaceType type : RouteSurfaceType.values()) {
+            aggregates.put(type, new double[]{0.0, 0.0});
+        }
+        ORSJsonResponse.ExtraInfo waytype = route == null || route.getExtras() == null
+                ? null
+                : route.getExtras().get("waytype");
+        if (waytype != null && waytype.getSummary() != null) {
+            for (ORSJsonResponse.ExtraSummary row : waytype.getSummary()) {
+                RouteSurfaceType type = routeSurfaceType((int) row.getValue());
+                double[] aggregate = aggregates.get(type);
+                aggregate[0] += row.getAmount();
+                aggregate[1] += row.getDistance();
+            }
+        }
+        return aggregates.entrySet().stream()
+                .map(entry -> RouteSurfaceSummaryDto.builder()
+                        .type(entry.getKey())
+                        .percentage(round2(entry.getValue()[0]))
+                        .distance(round2(entry.getValue()[1]))
+                        .build())
+                .sorted(Comparator.comparing(RouteSurfaceSummaryDto::getPercentage).reversed())
+                .collect(Collectors.toList());
+    }
+
+    private RouteSurfaceType routeSurfaceType(int waytype) {
+        return switch (waytype) {
+            case 1 -> RouteSurfaceType.MAIN_ROAD;
+            case 2 -> RouteSurfaceType.ROAD;
+            case 3 -> RouteSurfaceType.LOCAL_STREET;
+            case 4, 6, 7 -> RouteSurfaceType.PATH_OR_CYCLEWAY;
+            case 5 -> RouteSurfaceType.UNPAVED;
+            default -> RouteSurfaceType.ETC;
+        };
+    }
+
+    private boolean hasExtraValue(ORSJsonResponse.Route route, String key, int value) {
+        return summaryAmount(route, key, current -> current == value) > 0.0;
+    }
+
+    private double summaryAmount(ORSJsonResponse.Route route, String key, IntPredicate predicate) {
+        ORSJsonResponse.ExtraInfo extra = route == null || route.getExtras() == null ? null : route.getExtras().get(key);
+        if (extra == null || extra.getSummary() == null) {
+            return 0.0;
+        }
+        return extra.getSummary().stream()
+                .filter(row -> predicate.test((int) row.getValue()))
+                .mapToDouble(ORSJsonResponse.ExtraSummary::getAmount)
+                .sum();
+    }
+
+    private double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
+    private double round4(double value) {
+        return Math.round(value * 10_000.0) / 10_000.0;
     }
 
     private int steepnessDifficulty(String skillLevel) {
@@ -897,6 +1183,34 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private record RouteCandidateDraft(RouteRequestDto requestDto, RouteOptionDto option) {
+    }
+
+    private record RecommendationDirective(
+            Double maxDistanceKm,
+            Integer targetDifficulty,
+            boolean avoidConstruction,
+            boolean avoidSteps,
+            boolean avoidIce,
+            Map<String, Double> weights,
+            List<String> wayPoints,
+            List<String> wayPointNames
+    ) {
+        private static RecommendationDirective empty() {
+            return new RecommendationDirective(
+                    null,
+                    null,
+                    false,
+                    false,
+                    false,
+                    null,
+                    List.of(),
+                    List.of()
+            );
+        }
+    }
+
+    private interface IntPredicate {
+        boolean test(int value);
     }
 
     private record RouteBuildResult(

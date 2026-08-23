@@ -12,5 +12,7 @@ public class RouteRecommendationReqDto {
     private String start;
     private String goal;
     private Boolean isUsed;
+    private String userIntentText;
+    private Double maxDistanceKm;
     private RouteOptionDto routeOption;
 }

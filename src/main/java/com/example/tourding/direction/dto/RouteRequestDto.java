@@ -19,5 +19,7 @@ public class RouteRequestDto {
     private String contentId; // 경유지의 contentId가 들어감, 출발지 도착지의 경우에는 null 처리
     private String contentTypeId;
     private Boolean isUsed; // 실제 경로검색에 사용이 되었는지
+    private String userIntentText;
+    private Double maxDistanceKm;
     private RouteOptionDto routeOption;
 }

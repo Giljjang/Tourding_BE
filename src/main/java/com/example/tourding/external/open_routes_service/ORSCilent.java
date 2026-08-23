@@ -65,7 +65,12 @@ public class ORSCilent {
         return response;
     }
 
-    private ORSResponse fetchORSDirection(String start, String goal, String wayPoints, RouteOptionDto resolvedOption) {
+    private ORSResponse fetchORSDirection(
+            String start,
+            String goal,
+            String wayPoints,
+            RouteOptionDto resolvedOption
+    ) {
         try {
             String profile = resolvedOption.getCyclingProfile() == null || resolvedOption.getCyclingProfile().isBlank()
                     ? "cycling-regular"
@@ -168,12 +173,12 @@ public class ORSCilent {
             avoidFeatures.add("fords");
         }
 
-        return Map.of(
-                "avoid_features", avoidFeatures,
-                "profile_params", Map.of(
-                        "weightings", Map.of("steepness_difficulty", steepnessDifficulty(option.getSkillLevel()))
-                )
-        );
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("avoid_features", avoidFeatures);
+        options.put("profile_params", Map.of(
+                "weightings", Map.of("steepness_difficulty", steepnessDifficulty(option.getSkillLevel()))
+        ));
+        return options;
     }
 
     private int steepnessDifficulty(String skillLevel) {

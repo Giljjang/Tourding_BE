@@ -1,6 +1,7 @@
 package com.example.tourding.external.openai;
 
 import com.example.tourding.ai.dto.AiIntentClassifyRespDto;
+import com.example.tourding.ai.dto.AiRouteRecommendationIntentDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -118,6 +119,61 @@ public class OpenAiClient {
         }
     }
 
+    public AiRouteRecommendationIntentDto classifyRouteRecommendationIntent(String text) {
+        if (openAiSecretKey == null || openAiSecretKey.isBlank()) {
+            throw new IllegalStateException("OpenAI API key가 설정되지 않았습니다.");
+        }
+
+        try {
+            String systemPrompt = """
+                    너는 자전거 여행 앱 투어딩의 추천 코스 조건 분류기다.
+                    반드시 JSON만 반환한다.
+                    지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit 네 가지뿐이다.
+                    이외 요청만 있으면 supported=false로 반환한다.
+                    waypoint_names는 사용자가 경유하고 싶은 장소명 배열이다.
+                    target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.
+                    avoid_construction, avoid_steps, avoid_ice는 각각 공사구간, 계단, 빙판길 제외 요청 여부다.
+                    max_distance_km는 키로수 제한이 있을 때 숫자로 반환한다.
+                    weight_update는 comfort, flatness, surface, waytype, efficiency 합이 1.0이 되게 반환한다.
+                    """;
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("model", intentModel);
+            body.put("input", List.of(
+                    Map.of("role", "system", "content", List.of(Map.of("type", "input_text", "text", systemPrompt))),
+                    Map.of("role", "user", "content", List.of(Map.of("type", "input_text", "text", "사용자 입력: " + text)))
+            ));
+            body.put("text", Map.of("format", Map.of("type", "json_object")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(openAiSecretKey);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://api.openai.com/v1/responses",
+                    HttpMethod.POST,
+                    new HttpEntity<>(objectMapper.writeValueAsString(body), headers),
+                    String.class
+            );
+
+            JsonNode result = objectMapper.readTree(extractOutputText(objectMapper.readTree(response.getBody())));
+
+            return AiRouteRecommendationIntentDto.builder()
+                    .waypointNames(parseStringList(result.path("waypoint_names")))
+                    .targetDifficulty(result.path("target_difficulty").isNumber() ? result.path("target_difficulty").asInt() : null)
+                    .avoidConstruction(result.path("avoid_construction").isBoolean() ? result.path("avoid_construction").asBoolean() : null)
+                    .avoidSteps(result.path("avoid_steps").isBoolean() ? result.path("avoid_steps").asBoolean() : null)
+                    .avoidIce(result.path("avoid_ice").isBoolean() ? result.path("avoid_ice").asBoolean() : null)
+                    .maxDistanceKm(result.path("max_distance_km").isNumber() ? result.path("max_distance_km").asDouble() : null)
+                    .weightUpdate(parseWeightUpdate(result.path("weight_update")))
+                    .explanation(result.path("explanation").asText(""))
+                    .supported(result.path("supported").asBoolean(false))
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("OpenAI 추천 의도분류 호출 실패", e);
+        }
+    }
+
     private String extractOutputText(JsonNode root) {
         JsonNode output = root.path("output");
         if (output.isArray()) {
@@ -146,6 +202,19 @@ public class OpenAiClient {
             Map.Entry<String, JsonNode> field = fields.next();
             if (field.getValue().isNumber()) {
                 result.put(field.getKey(), field.getValue().asDouble());
+            }
+        }
+        return result;
+    }
+
+    private List<String> parseStringList(JsonNode node) {
+        if (node == null || !node.isArray()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (JsonNode item : node) {
+            if (item.isTextual() && !item.asText().isBlank()) {
+                result.add(item.asText().trim());
             }
         }
         return result;

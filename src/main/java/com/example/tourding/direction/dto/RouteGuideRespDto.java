@@ -19,6 +19,11 @@ public class RouteGuideRespDto {
     private Double ascent;
     private Double descent;
     private String uphillLevel;
+    private Integer difficultyLevel;
+    private List<RouteSurfaceSummaryDto> surfaceSummary;
+    private Boolean hasConstruction;
+    private Boolean hasSteps;
+    private Boolean hasIce;
     private Double preferenceScore;
     private RouteOptionDto appliedOption;
     private List<RouteGuideStepDto> guides;
