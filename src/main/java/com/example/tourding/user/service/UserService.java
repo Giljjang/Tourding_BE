@@ -1,9 +1,11 @@
 package com.example.tourding.user.service;
 
+import com.example.tourding.ai.entity.AiRouteRequest;
+import com.example.tourding.ai.repository.AiRouteCandidateRepository;
+import com.example.tourding.ai.repository.AiRouteRequestRepository;
 import com.example.tourding.direction.dto.RouteOptionDto;
-import com.example.tourding.direction.entity.RouteSummary;
+import com.example.tourding.direction.repository.RouteSummaryHistoryRepository;
 import com.example.tourding.direction.repository.RouteSummaryRepository;
-import com.example.tourding.direction.service.RouteService;
 import com.example.tourding.user.dto.request.UserCreateReqDto;
 import com.example.tourding.user.dto.request.UserRidingProfileUpdateReqDto;
 import com.example.tourding.user.dto.request.UserUpdateReqDto;
@@ -29,8 +31,10 @@ public class UserService implements UserServiceImpl{
 
     private final UserRepository userRepository;
     private final RouteSummaryRepository routeSummaryRepository;
-    private final RouteService routeService;
+    private final RouteSummaryHistoryRepository routeSummaryHistoryRepository;
     private final UserRidingProfileRepository userRidingProfileRepository;
+    private final AiRouteRequestRepository aiRouteRequestRepository;
+    private final AiRouteCandidateRepository aiRouteCandidateRepository;
 
     public UserResponseDto register(UserCreateReqDto userCreateReqDto) {
         Optional<User> checkUser = userRepository.findByUsername(userCreateReqDto.getUsername());
@@ -76,15 +80,22 @@ public class UserService implements UserServiceImpl{
 
     @Transactional
     public void deleteUser(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("유저 찾기 실패 : " + id));
-        Optional<RouteSummary> routeSummaryTrue = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(id,true);
-        routeSummaryTrue.ifPresent(summary -> routeService.deleteUserRoute(summary.getId(), user));
+        if (!userRepository.existsById(id)) {
+            throw new EntityNotFoundException("유저 찾기 실패 : " + id);
+        }
 
-        Optional<RouteSummary> routeSummaryFalse = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(id,false);
-        routeSummaryFalse.ifPresent(summary -> routeService.deleteUserRoute(summary.getId(), user));
+        List<Long> aiRequestIds = aiRouteRequestRepository.findByUserId(id).stream()
+                .map(AiRouteRequest::getId)
+                .toList();
+        if (!aiRequestIds.isEmpty()) {
+            aiRouteCandidateRepository.deleteAllByAiRouteRequestIdIn(aiRequestIds);
+        }
 
-        userRepository.delete(user);
+        aiRouteRequestRepository.deleteAllByUserId(id);
+        routeSummaryHistoryRepository.deleteAllByUserId(id);
+        routeSummaryRepository.deleteAllByUserId(id);
+        userRidingProfileRepository.deleteByUserId(id);
+        userRepository.deleteByIdDirect(id);
     }
 
     @Transactional
