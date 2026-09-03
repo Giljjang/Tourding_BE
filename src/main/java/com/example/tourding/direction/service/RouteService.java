@@ -124,26 +124,31 @@ public class RouteService implements RouteServiceImpl {
             Double currentLat,
             RouteOptionDto overrideOption
     ) {
+        RouteRequestDto previousRouteRequestDto = currentLocationRouteRequest(
+                userId,
+                routeSummary,
+                currentLon,
+                currentLat,
+                routeOptionFromSummary(routeSummary)
+        );
+        RouteBuildResult previousRoute = buildRouteResponse(
+                previousRouteRequestDto,
+                previousRouteRequestDto.getRouteOption(),
+                routeSummary.getPreferenceScore(),
+                true
+        );
+
         snapshotRouteSummary(routeSummary, "AI_ADJUSTMENT");
         RouteOptionDto option = resolveRouteOption(userId, overrideOption);
-        RouteRequestDto requestDto = RouteRequestDto.builder()
-                .userId(userId)
-                .start(currentLon + "," + currentLat)
-                .goal(routeSummary.getGoal())
-                .wayPoints(routeSummary.getWayPoints())
-                .locateName(rebuildLocateName(routeSummary.getLocateName()))
-                .typeCode(rebuildTypeCode(routeSummary.getTypeCode()))
-                .contentId(routeSummary.getContentId())
-                .contentTypeId(routeSummary.getContentTypeId())
-                .isUsed(true)
-                .routeOption(option)
-                .build();
+        RouteRequestDto requestDto = currentLocationRouteRequest(userId, routeSummary, currentLon, currentLat, option);
 
         RouteRecommendationsRespDto recommendations = getRouteRecommendations(requestDto);
         if (recommendations.getRoutes() == null || recommendations.getRoutes().isEmpty()) {
             throw new IllegalStateException("후보 경로 생성에 실패했습니다.");
         }
-        return recommendations.getRoutes().get(0);
+        RouteGuideRespDto adjustedRoute = recommendations.getRoutes().get(0);
+        adjustedRoute.setAdjustmentComparison(adjustmentComparison(previousRoute.response(), adjustedRoute));
+        return adjustedRoute;
     }
 
     @Transactional
@@ -640,6 +645,38 @@ public class RouteService implements RouteServiceImpl {
                 .contentTypeId(summary.getContentTypeId())
                 .isUsed(summary.getIsUsed())
                 .routeOption(routeOptionFromSummary(summary))
+                .build();
+    }
+
+    private RouteRequestDto currentLocationRouteRequest(
+            Long userId,
+            RouteSummary routeSummary,
+            Double currentLon,
+            Double currentLat,
+            RouteOptionDto option
+    ) {
+        return RouteRequestDto.builder()
+                .userId(userId)
+                .start(currentLon + "," + currentLat)
+                .goal(routeSummary.getGoal())
+                .wayPoints(routeSummary.getWayPoints())
+                .locateName(rebuildLocateName(routeSummary.getLocateName()))
+                .typeCode(rebuildTypeCode(routeSummary.getTypeCode()))
+                .contentId(routeSummary.getContentId())
+                .contentTypeId(routeSummary.getContentTypeId())
+                .isUsed(true)
+                .routeOption(option)
+                .build();
+    }
+
+    private RouteAdjustmentComparisonDto adjustmentComparison(RouteGuideRespDto previousRoute, RouteGuideRespDto adjustedRoute) {
+        return RouteAdjustmentComparisonDto.builder()
+                .durationDiffMinutes(round2((defaultDouble(adjustedRoute.getDuration(), 0.0)
+                        - defaultDouble(previousRoute.getDuration(), 0.0)) / 60.0))
+                .distanceDiffKm(round2((defaultDouble(adjustedRoute.getDistance(), 0.0)
+                        - defaultDouble(previousRoute.getDistance(), 0.0)) / 1000.0))
+                .difficultyLevelDiff(defaultInteger(adjustedRoute.getDifficultyLevel(), 0)
+                        - defaultInteger(previousRoute.getDifficultyLevel(), 0))
                 .build();
     }
 
@@ -1171,6 +1208,10 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private double defaultDouble(Double value, double defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    private Integer defaultInteger(Integer value, Integer defaultValue) {
         return value == null ? defaultValue : value;
     }
 

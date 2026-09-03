@@ -20,6 +20,7 @@ public class RouteGuideRespDto {
     private Double descent;
     private String uphillLevel;
     private Integer difficultyLevel;
+    private RouteAdjustmentComparisonDto adjustmentComparison;
     private List<RouteSurfaceSummaryDto> surfaceSummary;
     private Boolean hasConstruction;
     private Boolean hasSteps;
