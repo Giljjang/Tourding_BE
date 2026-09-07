@@ -24,7 +24,16 @@ public class IntentClassifierService {
                 return ruleResult;
             }
         }
-        return openAiClient.classifyIntent(transcript);
+        try {
+            return openAiClient.classifyIntent(transcript);
+        } catch (RuntimeException ignored) {
+            AiIntentClassifyRespDto ruleResult = classifyByRule(transcript);
+            if (ruleResult != null) {
+                return ruleResult;
+            }
+            return result("UNSUPPORTED", "REJECT_WITH_ALTERNATIVE", null,
+                    "지원하는 경로수정 조건으로 분류할 수 없습니다.");
+        }
     }
 
     private AiIntentClassifyRespDto classifyByRule(String transcript) {
@@ -46,7 +55,7 @@ public class IntentClassifierService {
             return result("ADD_TOUR_SPOT", "ADD_WAYPOINT_CANDIDATE", null,
                     "관광지 또는 경유지 추가 요청으로 분류했습니다.");
         }
-        if (containsAny(text, "오르막", "업힐", "경사", "평지", "완만", "덜힘든")) {
+        if (containsAny(text, "오르막", "업힐", "경사", "평지", "완만", "평탄", "언덕", "덜힘든", "덜힘들")) {
             return result("LESS_HILLS", "RECALCULATE_REMAINING_ROUTE",
                     weights(0.20, 0.45, 0.15, 0.10, 0.10),
                     "오르막 회피 요청으로 분류해 평탄함 가중치를 높였습니다.");
@@ -56,7 +65,7 @@ public class IntentClassifierService {
                     weights(0.15, 0.15, 0.45, 0.15, 0.10),
                     "노면 상태 선호 요청으로 분류해 노면 가중치를 높였습니다.");
         }
-        if (containsAny(text, "자전거도로", "자전거길", "편한길", "안전한코스", "차랑덜")) {
+        if (containsAny(text, "자전거도로", "자전거길", "편한길", "편한", "편하게", "쉬운", "쉽게", "무난", "안전한코스", "차랑덜")) {
             return result("BIKE_FRIENDLY", "RECALCULATE_REMAINING_ROUTE",
                     weights(0.35, 0.15, 0.15, 0.25, 0.10),
                     "자전거 친화 경로 요청으로 분류했습니다.");

@@ -3,6 +3,7 @@ package com.example.tourding.ai.service;
 import com.example.tourding.ai.dto.AiRouteRecommendationIntentDto;
 import com.example.tourding.external.openai.OpenAiClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -16,11 +17,26 @@ public class AiRouteRecommendationIntentService {
 
     private final OpenAiClient openAiClient;
 
+    @Value("${AI_INTENT_RULE_FIRST:${ai.intent.rule-first:true}}")
+    private boolean ruleFirst = true;
+
     public AiRouteRecommendationIntentDto classify(String text) {
         if (text == null || text.isBlank()) {
             return AiRouteRecommendationIntentDto.builder()
                     .supported(false)
                     .build();
+        }
+
+        String compactText = text.replaceAll("\\s+", "");
+        if (isFacilitySearch(compactText)) {
+            return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
+        }
+
+        if (ruleFirst) {
+            AiRouteRecommendationIntentDto ruleResult = classifyByRule(text);
+            if (hasAnyCondition(ruleResult) || ruleResult.isSupported()) {
+                return ruleResult;
+            }
         }
 
         try {
@@ -37,6 +53,10 @@ public class AiRouteRecommendationIntentService {
 
     private AiRouteRecommendationIntentDto classifyByRule(String rawText) {
         String text = rawText.replaceAll("\\s+", "");
+        if (isFacilitySearch(text)) {
+            return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
+        }
+
         List<String> waypointNames = waypointNames(rawText);
         Integer targetDifficulty = targetDifficulty(text);
         Boolean avoidConstruction = containsAny(text, "공사", "통제", "폐쇄") ? true : null;
@@ -61,6 +81,14 @@ public class AiRouteRecommendationIntentService {
                 .weightUpdate(weightsFor(targetDifficulty, avoidConstruction, avoidSteps, avoidIce))
                 .explanation(supported ? "추천 코스 조건으로 분류했습니다." : "지원하지 않는 추천 조건입니다.")
                 .supported(supported)
+                .build();
+    }
+
+    private AiRouteRecommendationIntentDto unsupported(String explanation) {
+        return AiRouteRecommendationIntentDto.builder()
+                .waypointNames(List.of())
+                .explanation(explanation)
+                .supported(false)
                 .build();
     }
 
@@ -90,7 +118,10 @@ public class AiRouteRecommendationIntentService {
     }
 
     private Integer targetDifficulty(String text) {
-        if (containsAny(text, "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "낮은난이도")) {
+        if (containsAny(text,
+                "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "낮은난이도",
+                "오르막", "업힐", "경사", "언덕", "평지", "완만", "평탄", "덜힘든", "덜힘들",
+                "힘들지않은", "힘들지않게")) {
             return 1;
         }
         if (containsAny(text, "난이도2", "2단계", "보통", "일반")) {
@@ -175,5 +206,9 @@ public class AiRouteRecommendationIntentService {
             }
         }
         return false;
+    }
+
+    private boolean isFacilitySearch(String text) {
+        return containsAny(text, "카페", "화장실", "편의점", "맛집", "식당", "보급", "물");
     }
 }

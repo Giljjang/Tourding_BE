@@ -5,6 +5,7 @@ import com.example.tourding.ai.dto.AiRouteRecommendationIntentDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -19,6 +20,7 @@ import java.util.*;
 @Component
 @RequiredArgsConstructor
 public class OpenAiClient {
+    @Qualifier("openAiRestTemplate")
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
