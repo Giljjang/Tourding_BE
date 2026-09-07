@@ -147,6 +147,10 @@ KAKAO_CLIENT_KAKAOAK=...
 OPEN_ROUTE_SERVICE_KEY=...
 OPEN_WEATHER_MAP_KEY=...
 
+REDIS_HOST=redis
+REDIS_PORT=6380
+REDIS_PASSWORD=...
+
 APPLE_KEY_ID=...
 APPLE_ISS=...
 APPLE_BUNDLE_ID=...
@@ -208,6 +212,16 @@ DB 이름이 빠지면 `No database selected` 오류가 발생합니다.
 | `KAKAO_CLIENT_KAKAOAK` | Kakao API 키 |
 | `OPEN_ROUTE_SERVICE_KEY` | OpenRouteService API 키 |
 | `OPEN_WEATHER_MAP_KEY` | OpenWeatherMap API 키 |
+
+#### Redis Cache
+
+| Name | 설명 |
+|---|---|
+| `REDIS_HOST` | Redis 호스트. compose 내부 전용 Redis를 쓰면 `redis` |
+| `REDIS_PORT` | Redis 포트. 기존 서버 Redis와 구분하려면 예: `6380` |
+| `REDIS_PASSWORD` | Redis 비밀번호 |
+
+운영 compose에서는 `REDIS_PORT` 값이 Redis 서버 실행 포트, 앱 접속 포트, Redis healthcheck 포트에 동일하게 적용됩니다.
 
 #### Apple Login
 

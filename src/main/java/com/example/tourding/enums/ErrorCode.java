@@ -23,7 +23,9 @@ public enum ErrorCode{
     ROUTE_SUMMARY_NOT_FOUND(12, "현재 라이딩 경로가 없습니다.", HttpStatus.NOT_FOUND),
     AI_RECOMMENDATION_UNSUPPORTED_INTENT(13, "지원하지 않는 추천 조건입니다.", HttpStatus.BAD_REQUEST),
     AI_RECOMMENDATION_WAYPOINT_NOT_FOUND(14, "경유지 장소를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST),
-    AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT(15, "키로수 제한은 0보다 커야 합니다.", HttpStatus.BAD_REQUEST);
+    AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT(15, "키로수 제한은 0보다 커야 합니다.", HttpStatus.BAD_REQUEST),
+    USER_NOT_FOUND(16, "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
+    INVALID_REQUEST(17, "잘못된 요청입니다.", HttpStatus.BAD_REQUEST);
 
     @Getter
     private final int code;

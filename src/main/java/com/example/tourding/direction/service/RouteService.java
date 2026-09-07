@@ -154,7 +154,7 @@ public class RouteService implements RouteServiceImpl {
     @Transactional
     public RouteGuideRespDto rollbackRoute(Long routeSummaryId, Long userId) {
         RouteSummary summary = routeSummaryRepository.findById(routeSummaryId)
-                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_SUMMARY_NOT_FOUND));
         if (!summary.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("사용자의 경로가 아닙니다.");
         }
@@ -188,7 +188,7 @@ public class RouteService implements RouteServiceImpl {
     @Transactional(readOnly = true)
     public RouteGuideRespDto getRouteSummaryByUserId(Long userId, Boolean isUsed) {
         RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
-                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_SUMMARY_NOT_FOUND));
 
         RouteRequestDto requestDto = requestFromSummary(summary);
         RouteBuildResult result = buildRouteResponse(requestDto, requestDto.getRouteOption(), summary.getPreferenceScore(), true);
@@ -204,7 +204,7 @@ public class RouteService implements RouteServiceImpl {
     @Transactional(readOnly = true)
     public List<RoutePathRespDto> getPathByUserId(Long userId, Boolean isUsed) {
         RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
-                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_SUMMARY_NOT_FOUND));
 
         ORSResponse orsResponse = orsCilent.getORSDirection(
                 summary.getStart(),
@@ -219,7 +219,7 @@ public class RouteService implements RouteServiceImpl {
     @Transactional(readOnly = true)
     public List<RouteLocationNameRespDto> getLocationNameByUserId(Long userId, Boolean isUsed) {
         RouteSummary summary = routeSummaryRepository.findRouteSummaryByUserIdAndIsUsed(userId, isUsed)
-                .orElseThrow(() -> new EntityNotFoundException("저장된 경로 없음"));
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_SUMMARY_NOT_FOUND));
 
         return convertToLocationNames(
                 splitCsv(summary.getLocateName()),
