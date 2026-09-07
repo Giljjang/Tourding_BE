@@ -132,7 +132,8 @@ public class OpenAiClient {
                     반드시 JSON만 반환한다.
                     지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit 네 가지뿐이다.
                     이외 요청만 있으면 supported=false로 반환한다.
-                    waypoint_names는 사용자가 경유하고 싶은 장소명 배열이다.
+                    waypoint_names는 사용자가 경유하고 싶은 구체적인 장소명 배열이다.
+                    카페, 화장실, 편의점, 맛집처럼 시설 종류만 있고 구체적인 장소명이 없으면 supported=false로 반환한다.
                     target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.
                     avoid_construction, avoid_steps, avoid_ice는 각각 공사구간, 계단, 빙판길 제외 요청 여부다.
                     max_distance_km는 키로수 제한이 있을 때 숫자로 반환한다.

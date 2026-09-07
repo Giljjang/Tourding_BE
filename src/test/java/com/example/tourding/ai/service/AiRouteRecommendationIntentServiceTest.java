@@ -31,4 +31,23 @@ class AiRouteRecommendationIntentServiceTest {
         assertThat(result.getExplanation()).contains("시설 탐색");
         verifyNoInteractions(openAiClient);
     }
+
+    @Test
+    void allowsSpecificWaypointNameInRouteRecommendation() {
+        AiRouteRecommendationIntentDto result = service.classify("황리단길 경유해서 쉬운 코스로 추천해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("황리단길");
+        assertThat(result.getTargetDifficulty()).isEqualTo(1);
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void rejectsGenericFacilityCategoryAsWaypoint() {
+        AiRouteRecommendationIntentDto result = service.classify("카페 들러서 코스 추천해줘");
+
+        assertThat(result.isSupported()).isFalse();
+        assertThat(result.getExplanation()).contains("구체적인 장소명");
+        verifyNoInteractions(openAiClient);
+    }
 }

@@ -21,7 +21,7 @@ public enum ErrorCode{
     AI_ROUTE_CANDIDATE_EMPTY(10, "후보 경로 생성에 실패했습니다.", HttpStatus.BAD_REQUEST),
     ORS_ROUTE_REQUEST_FAILED(11, "ORS 경로 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
     ROUTE_SUMMARY_NOT_FOUND(12, "현재 라이딩 경로가 없습니다.", HttpStatus.NOT_FOUND),
-    AI_RECOMMENDATION_UNSUPPORTED_INTENT(13, "AI 추천은 거리 제한, 난이도/오르막 회피, 계단·빙판·공사구간 회피 조건만 지원합니다.", HttpStatus.BAD_REQUEST),
+    AI_RECOMMENDATION_UNSUPPORTED_INTENT(13, "AI 추천은 구체적인 경유지 장소명, 거리 제한, 난이도/오르막 회피, 계단·빙판·공사구간 회피 조건만 지원합니다.", HttpStatus.BAD_REQUEST),
     AI_RECOMMENDATION_WAYPOINT_NOT_FOUND(14, "경유지 장소를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST),
     AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT(15, "키로수 제한은 0보다 커야 합니다.", HttpStatus.BAD_REQUEST),
     USER_NOT_FOUND(16, "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),

@@ -28,13 +28,13 @@ public class AiRouteRecommendationIntentService {
         }
 
         String compactText = text.replaceAll("\\s+", "");
-        if (isFacilitySearch(compactText)) {
+        if (isFacilitySearch(compactText) && !hasWaypointDirective(compactText)) {
             return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
         }
 
         if (ruleFirst) {
             AiRouteRecommendationIntentDto ruleResult = classifyByRule(text);
-            if (hasAnyCondition(ruleResult) || ruleResult.isSupported()) {
+            if (hasAnyCondition(ruleResult) || ruleResult.isSupported() || isExplicitUnsupported(ruleResult)) {
                 return ruleResult;
             }
         }
@@ -53,7 +53,7 @@ public class AiRouteRecommendationIntentService {
 
     private AiRouteRecommendationIntentDto classifyByRule(String rawText) {
         String text = rawText.replaceAll("\\s+", "");
-        if (isFacilitySearch(text)) {
+        if (isFacilitySearch(text) && !hasWaypointDirective(text)) {
             return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
         }
 
@@ -79,7 +79,7 @@ public class AiRouteRecommendationIntentService {
                 .avoidIce(avoidIce)
                 .maxDistanceKm(maxDistanceKm)
                 .weightUpdate(weightsFor(targetDifficulty, avoidConstruction, avoidSteps, avoidIce))
-                .explanation(supported ? "추천 코스 조건으로 분류했습니다." : "지원하지 않는 추천 조건입니다.")
+                .explanation(supported ? "추천 코스 조건으로 분류했습니다." : unsupportedExplanation(text, waypointNames))
                 .supported(supported)
                 .build();
     }
@@ -99,6 +99,7 @@ public class AiRouteRecommendationIntentService {
         return result.stream()
                 .map(this::cleanWaypointName)
                 .filter(name -> name.length() >= 2)
+                .filter(name -> !isGenericFacilityName(name))
                 .distinct()
                 .toList();
     }
@@ -199,6 +200,14 @@ public class AiRouteRecommendationIntentService {
         );
     }
 
+    private boolean isExplicitUnsupported(AiRouteRecommendationIntentDto result) {
+        return result != null
+                && !result.isSupported()
+                && result.getExplanation() != null
+                && !result.getExplanation().isBlank()
+                && !"지원하지 않는 추천 조건입니다.".equals(result.getExplanation());
+    }
+
     private boolean containsAny(String text, String... words) {
         for (String word : words) {
             if (text.contains(word)) {
@@ -210,5 +219,21 @@ public class AiRouteRecommendationIntentService {
 
     private boolean isFacilitySearch(String text) {
         return containsAny(text, "카페", "화장실", "편의점", "맛집", "식당", "보급", "물");
+    }
+
+    private boolean hasWaypointDirective(String text) {
+        return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "거쳐", "거치");
+    }
+
+    private boolean isGenericFacilityName(String name) {
+        String compact = name.replaceAll("\\s+", "");
+        return Set.of("카페", "화장실", "편의점", "맛집", "식당", "보급", "물").contains(compact);
+    }
+
+    private String unsupportedExplanation(String text, List<String> waypointNames) {
+        if (isFacilitySearch(text) && hasWaypointDirective(text) && (waypointNames == null || waypointNames.isEmpty())) {
+            return "경유지는 시설 종류가 아니라 구체적인 장소명으로 입력해야 합니다.";
+        }
+        return "지원하지 않는 추천 조건입니다.";
     }
 }
