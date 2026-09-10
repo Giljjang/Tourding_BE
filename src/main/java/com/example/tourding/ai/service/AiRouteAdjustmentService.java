@@ -55,6 +55,11 @@ public class AiRouteAdjustmentService {
         return adjust(requestDto, transcript, "VOICE", sttLatencyMs);
     }
 
+    @Transactional
+    public RouteGuideRespDto confirmAdjustment(Long userId, Long routeSummaryId) {
+        return routeService.confirmAdjustedRoute(routeSummaryId, userId);
+    }
+
     private RouteGuideRespDto adjust(AiRouteAdjustReqDto requestDto, String transcript, String inputType, Integer sttLatencyMs) {
         User user = userRepository.findById(requestDto.getUserId())
                 .orElseThrow(() -> new EntityNotFoundException("사용자 없음"));

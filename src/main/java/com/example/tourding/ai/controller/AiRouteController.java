@@ -3,6 +3,7 @@ package com.example.tourding.ai.controller;
 import com.example.tourding.ai.dto.*;
 import com.example.tourding.ai.service.AiRouteAdjustmentService;
 import com.example.tourding.direction.dto.RouteGuideRespDto;
+import com.example.tourding.direction.dto.RouteRollbackReqDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -57,6 +58,21 @@ public class AiRouteController {
         );
         log.info("✅ [SUCCESS] AI voice adjustment - userId={}, routeSummaryId={}",
                 userId, routeSummaryId);
+        return response;
+    }
+
+    @PostMapping("/routes/adjustments/{routeSummaryId}/confirm")
+    @Operation(summary = "AI 경로 재조정 확정 및 실제 라이딩 경로 반영")
+    public RouteGuideRespDto confirmAdjustment(
+            @PathVariable Long routeSummaryId,
+            @RequestBody RouteRollbackReqDto requestDto
+    ) {
+        RouteGuideRespDto response = aiRouteAdjustmentService.confirmAdjustment(
+                requestDto.getUserId(),
+                routeSummaryId
+        );
+        log.info("✅ [SUCCESS] AI adjustment confirm - userId={}, routeSummaryId={}",
+                requestDto.getUserId(), routeSummaryId);
         return response;
     }
 }

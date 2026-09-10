@@ -138,7 +138,6 @@ public class RouteService implements RouteServiceImpl {
                 true
         );
 
-        snapshotRouteSummary(routeSummary, "AI_ADJUSTMENT");
         RouteOptionDto option = resolveRouteOption(userId, overrideOption);
         RouteRequestDto requestDto = currentLocationRouteRequest(userId, routeSummary, currentLon, currentLat, option);
 
@@ -172,6 +171,33 @@ public class RouteService implements RouteServiceImpl {
         RouteRequestDto requestDto = requestFromSummary(restored);
         RouteBuildResult result = buildRouteResponse(requestDto, requestDto.getRouteOption(), restored.getPreferenceScore(), true);
         result.response().setRouteSummaryId(restored.getId());
+        return result.response();
+    }
+
+    @Transactional
+    public RouteGuideRespDto confirmAdjustedRoute(Long previewRouteSummaryId, Long userId) {
+        RouteSummary preview = routeSummaryRepository.findById(previewRouteSummaryId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_SUMMARY_NOT_FOUND));
+        if (!preview.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("사용자의 경로가 아닙니다.");
+        }
+        if (Boolean.TRUE.equals(preview.getIsUsed())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        RouteSummary active = routeSummaryRepository
+                .findRouteSummaryByUserIdAndIsUsed(userId, true)
+                .orElseGet(RouteSummary::new);
+        if (active.getId() != null) {
+            snapshotRouteSummary(active, "AI_ADJUSTMENT_CONFIRM");
+        }
+
+        copyRouteSummary(preview, active, true);
+        RouteSummary saved = routeSummaryRepository.save(active);
+
+        RouteRequestDto requestDto = requestFromSummary(saved);
+        RouteBuildResult result = buildRouteResponse(requestDto, requestDto.getRouteOption(), saved.getPreferenceScore(), true);
+        result.response().setRouteSummaryId(saved.getId());
         return result.response();
     }
 
@@ -466,6 +492,26 @@ public class RouteService implements RouteServiceImpl {
         summary.setRouteGeometryJson(history.getRouteGeometryJson());
     }
 
+    private void copyRouteSummary(RouteSummary source, RouteSummary target, boolean isUsed) {
+        target.setUser(source.getUser());
+        target.setStart(source.getStart());
+        target.setGoal(source.getGoal());
+        target.setWayPoints(defaultString(source.getWayPoints(), ""));
+        target.setTypeCode(defaultString(source.getTypeCode(), ""));
+        target.setContentId(defaultString(source.getContentId(), ""));
+        target.setContentTypeId(defaultString(source.getContentTypeId(), ""));
+        target.setLocateName(defaultString(source.getLocateName(), "출발지,도착지"));
+        target.setIsUsed(isUsed);
+        target.setCyclingProfile(source.getCyclingProfile());
+        target.setFastRoute(source.getFastRoute());
+        target.setAvoidSteps(source.getAvoidSteps());
+        target.setAvoidFords(source.getAvoidFords());
+        target.setSkillLevel(source.getSkillLevel());
+        target.setPreferenceScore(source.getPreferenceScore());
+        target.setExtraInfoJson(source.getExtraInfoJson());
+        target.setRouteGeometryJson(source.getRouteGeometryJson());
+    }
+
     private ORSJsonResponse.Route analysisRouteFromFeature(ORSResponse.ORSFeatures feature) {
         ORSJsonResponse.Route route = new ORSJsonResponse.Route();
         ORSJsonResponse.Summary routeSummary = new ORSJsonResponse.Summary();
@@ -664,7 +710,7 @@ public class RouteService implements RouteServiceImpl {
                 .typeCode(rebuildTypeCode(routeSummary.getTypeCode()))
                 .contentId(routeSummary.getContentId())
                 .contentTypeId(routeSummary.getContentTypeId())
-                .isUsed(true)
+                .isUsed(false)
                 .routeOption(option)
                 .build();
     }
