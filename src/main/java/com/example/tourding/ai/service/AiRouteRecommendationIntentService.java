@@ -61,14 +61,26 @@ public class AiRouteRecommendationIntentService {
         Integer targetDifficulty = targetDifficulty(text);
         Boolean avoidConstruction = containsAny(text, "공사", "통제", "폐쇄") ? true : null;
         Boolean avoidSteps = containsAny(text, "계단") ? true : null;
+        Boolean avoidFords = containsAny(text, "물길", "하천", "개울", "침수", "도섭") ? true : null;
         Boolean avoidIce = containsAny(text, "빙판", "눈길", "얼음", "결빙") ? true : null;
+        Boolean fastRoute = fastRoute(text);
+        String cyclingProfile = cyclingProfile(text);
+        Boolean preferPaved = preferPaved(text);
+        Boolean preferBikeRoad = preferBikeRoad(text);
+        Boolean avoidMainRoad = avoidMainRoad(text);
         Double maxDistanceKm = maxDistanceKm(rawText);
 
         boolean supported = !waypointNames.isEmpty()
                 || targetDifficulty != null
                 || avoidConstruction != null
                 || avoidSteps != null
+                || avoidFords != null
                 || avoidIce != null
+                || fastRoute != null
+                || cyclingProfile != null
+                || preferPaved != null
+                || preferBikeRoad != null
+                || avoidMainRoad != null
                 || maxDistanceKm != null;
 
         return AiRouteRecommendationIntentDto.builder()
@@ -76,9 +88,16 @@ public class AiRouteRecommendationIntentService {
                 .targetDifficulty(targetDifficulty)
                 .avoidConstruction(avoidConstruction)
                 .avoidSteps(avoidSteps)
+                .avoidFords(avoidFords)
                 .avoidIce(avoidIce)
+                .fastRoute(fastRoute)
+                .cyclingProfile(cyclingProfile)
+                .preferPaved(preferPaved)
+                .preferBikeRoad(preferBikeRoad)
+                .avoidMainRoad(avoidMainRoad)
                 .maxDistanceKm(maxDistanceKm)
-                .weightUpdate(weightsFor(targetDifficulty, avoidConstruction, avoidSteps, avoidIce))
+                .weightUpdate(weightsFor(targetDifficulty, avoidConstruction, avoidSteps, avoidFords, avoidIce,
+                        fastRoute, cyclingProfile, preferPaved, preferBikeRoad, avoidMainRoad))
                 .explanation(supported ? "추천 코스 조건으로 분류했습니다." : unsupportedExplanation(text, waypointNames))
                 .supported(supported)
                 .build();
@@ -145,11 +164,64 @@ public class AiRouteRecommendationIntentService {
         return Double.parseDouble(matcher.group(1));
     }
 
+    private Boolean fastRoute(String text) {
+        if (containsAny(text, "빠른", "빨리", "최단시간", "시간짧", "효율", "제일빠른", "가장빠른")) {
+            return true;
+        }
+        if (containsAny(text, "천천히", "여유", "느긋")) {
+            return false;
+        }
+        return null;
+    }
+
+    private String cyclingProfile(String text) {
+        if (containsAny(text, "로드", "로드바이크", "싸이클", "사이클")) {
+            return "cycling-road";
+        }
+        if (containsAny(text, "산악", "mtb", "MTB", "임도", "트레일", "산길")) {
+            return "cycling-mountain";
+        }
+        if (containsAny(text, "전기자전거", "전기", "전동", "이바이크", "ebike", "e-bike")) {
+            return "cycling-electric";
+        }
+        if (containsAny(text, "일반자전거", "일반")) {
+            return "cycling-regular";
+        }
+        return null;
+    }
+
+    private Boolean preferPaved(String text) {
+        if (containsAny(text, "포장도로", "포장길", "아스팔트", "노면좋", "노면좋은", "자갈피", "흙길피", "비포장피")) {
+            return true;
+        }
+        return null;
+    }
+
+    private Boolean preferBikeRoad(String text) {
+        if (containsAny(text, "자전거도로", "자전거길", "산책로", "강변길", "차없는", "차없는길")) {
+            return true;
+        }
+        return null;
+    }
+
+    private Boolean avoidMainRoad(String text) {
+        if (containsAny(text, "큰도로피", "큰길피", "간선도로피", "차도피", "차많", "차적은", "조용한길", "골목길")) {
+            return true;
+        }
+        return null;
+    }
+
     private Map<String, Double> weightsFor(
             Integer targetDifficulty,
             Boolean avoidConstruction,
             Boolean avoidSteps,
-            Boolean avoidIce
+            Boolean avoidFords,
+            Boolean avoidIce,
+            Boolean fastRoute,
+            String cyclingProfile,
+            Boolean preferPaved,
+            Boolean preferBikeRoad,
+            Boolean avoidMainRoad
     ) {
         Map<String, Double> weights = new LinkedHashMap<>();
         weights.put("comfort", 0.25);
@@ -172,7 +244,28 @@ public class AiRouteRecommendationIntentService {
             weights.put("waytype", 0.15);
             weights.put("efficiency", 0.40);
         }
-        if (Boolean.TRUE.equals(avoidConstruction) || Boolean.TRUE.equals(avoidSteps) || Boolean.TRUE.equals(avoidIce)) {
+        if (Boolean.TRUE.equals(fastRoute)) {
+            weights.put("efficiency", Math.max(weights.get("efficiency"), 0.45));
+            weights.put("flatness", Math.min(weights.get("flatness"), 0.20));
+            weights.put("comfort", Math.min(weights.get("comfort"), 0.20));
+        }
+        if (Boolean.FALSE.equals(fastRoute)) {
+            weights.put("comfort", weights.get("comfort") + 0.10);
+            weights.put("flatness", weights.get("flatness") + 0.10);
+            weights.put("efficiency", Math.max(0.05, weights.get("efficiency") - 0.10));
+        }
+        if ("cycling-road".equals(cyclingProfile) || Boolean.TRUE.equals(preferPaved)) {
+            weights.put("surface", weights.get("surface") + 0.20);
+            weights.put("efficiency", weights.get("efficiency") + 0.05);
+        }
+        if (Boolean.TRUE.equals(preferBikeRoad) || Boolean.TRUE.equals(avoidMainRoad)) {
+            weights.put("waytype", weights.get("waytype") + 0.20);
+            weights.put("comfort", weights.get("comfort") + 0.10);
+        }
+        if (Boolean.TRUE.equals(avoidConstruction)
+                || Boolean.TRUE.equals(avoidSteps)
+                || Boolean.TRUE.equals(avoidFords)
+                || Boolean.TRUE.equals(avoidIce)) {
             weights.put("surface", weights.get("surface") + 0.10);
             weights.put("waytype", weights.get("waytype") + 0.10);
             weights.put("efficiency", Math.max(0.05, weights.get("efficiency") - 0.10));
@@ -195,7 +288,13 @@ public class AiRouteRecommendationIntentService {
                         || result.getTargetDifficulty() != null
                         || result.getAvoidConstruction() != null
                         || result.getAvoidSteps() != null
+                        || result.getAvoidFords() != null
                         || result.getAvoidIce() != null
+                        || result.getFastRoute() != null
+                        || result.getCyclingProfile() != null
+                        || result.getPreferPaved() != null
+                        || result.getPreferBikeRoad() != null
+                        || result.getAvoidMainRoad() != null
                         || result.getMaxDistanceKm() != null
         );
     }
@@ -218,7 +317,7 @@ public class AiRouteRecommendationIntentService {
     }
 
     private boolean isFacilitySearch(String text) {
-        return containsAny(text, "카페", "화장실", "편의점", "맛집", "식당", "보급", "물");
+        return containsAny(text, "카페", "화장실", "편의점", "맛집", "식당", "보급");
     }
 
     private boolean hasWaypointDirective(String text) {
@@ -227,7 +326,7 @@ public class AiRouteRecommendationIntentService {
 
     private boolean isGenericFacilityName(String name) {
         String compact = name.replaceAll("\\s+", "");
-        return Set.of("카페", "화장실", "편의점", "맛집", "식당", "보급", "물").contains(compact);
+        return Set.of("카페", "화장실", "편의점", "맛집", "식당", "보급").contains(compact);
     }
 
     private String unsupportedExplanation(String text, List<String> waypointNames) {

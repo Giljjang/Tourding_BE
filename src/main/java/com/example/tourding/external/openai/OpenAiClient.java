@@ -130,12 +130,17 @@ public class OpenAiClient {
             String systemPrompt = """
                     너는 자전거 여행 앱 투어딩의 추천 코스 조건 분류기다.
                     반드시 JSON만 반환한다.
-                    지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit 네 가지뿐이다.
+                    지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit, route_speed, cycling_profile, surface_preference, waytype_preference다.
                     이외 요청만 있으면 supported=false로 반환한다.
                     waypoint_names는 사용자가 경유하고 싶은 구체적인 장소명 배열이다.
                     카페, 화장실, 편의점, 맛집처럼 시설 종류만 있고 구체적인 장소명이 없으면 supported=false로 반환한다.
                     target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.
-                    avoid_construction, avoid_steps, avoid_ice는 각각 공사구간, 계단, 빙판길 제외 요청 여부다.
+                    avoid_construction, avoid_steps, avoid_fords, avoid_ice는 각각 공사구간, 계단, 물길/도섭, 빙판길 제외 요청 여부다.
+                    fast_route는 빠른길/최단시간/효율 우선이면 true, 여유/느긋한 경로면 false, 없으면 null이다.
+                    cycling_profile은 cycling-regular, cycling-road, cycling-mountain, cycling-electric 중 하나이며 없으면 null이다.
+                    prefer_paved는 포장도로/아스팔트/좋은 노면 선호 여부다.
+                    prefer_bike_road는 자전거도로/자전거길/산책로/강변길 우선 여부다.
+                    avoid_main_road는 큰도로/차도/차 많은 길 회피 여부다.
                     max_distance_km는 키로수 제한이 있을 때 숫자로 반환한다.
                     weight_update는 comfort, flatness, surface, waytype, efficiency 합이 1.0이 되게 반환한다.
                     """;
@@ -166,7 +171,13 @@ public class OpenAiClient {
                     .targetDifficulty(result.path("target_difficulty").isNumber() ? result.path("target_difficulty").asInt() : null)
                     .avoidConstruction(result.path("avoid_construction").isBoolean() ? result.path("avoid_construction").asBoolean() : null)
                     .avoidSteps(result.path("avoid_steps").isBoolean() ? result.path("avoid_steps").asBoolean() : null)
+                    .avoidFords(result.path("avoid_fords").isBoolean() ? result.path("avoid_fords").asBoolean() : null)
                     .avoidIce(result.path("avoid_ice").isBoolean() ? result.path("avoid_ice").asBoolean() : null)
+                    .fastRoute(result.path("fast_route").isBoolean() ? result.path("fast_route").asBoolean() : null)
+                    .cyclingProfile(result.path("cycling_profile").isTextual() ? result.path("cycling_profile").asText() : null)
+                    .preferPaved(result.path("prefer_paved").isBoolean() ? result.path("prefer_paved").asBoolean() : null)
+                    .preferBikeRoad(result.path("prefer_bike_road").isBoolean() ? result.path("prefer_bike_road").asBoolean() : null)
+                    .avoidMainRoad(result.path("avoid_main_road").isBoolean() ? result.path("avoid_main_road").asBoolean() : null)
                     .maxDistanceKm(result.path("max_distance_km").isNumber() ? result.path("max_distance_km").asDouble() : null)
                     .weightUpdate(parseWeightUpdate(result.path("weight_update")))
                     .explanation(result.path("explanation").asText(""))

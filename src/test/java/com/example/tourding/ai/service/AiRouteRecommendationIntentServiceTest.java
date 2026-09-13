@@ -43,6 +43,46 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void classifiesFastRouteWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("제일 빠른길로 안내해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getFastRoute()).isTrue();
+        assertThat(result.getWeightUpdate().get("efficiency")).isGreaterThan(0.30);
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesRoadBikeAndPavedPreferenceWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("로드 자전거로 포장도로 위주로 추천해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getCyclingProfile()).isEqualTo("cycling-road");
+        assertThat(result.getPreferPaved()).isTrue();
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesAvoidFordsAndStepsWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("물길이랑 계단 피해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getAvoidFords()).isTrue();
+        assertThat(result.getAvoidSteps()).isTrue();
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesBikeRoadPreferenceAndMainRoadAvoidanceWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("자전거도로 우선으로 큰도로 피해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getPreferBikeRoad()).isTrue();
+        assertThat(result.getAvoidMainRoad()).isTrue();
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
     void rejectsGenericFacilityCategoryAsWaypoint() {
         AiRouteRecommendationIntentDto result = service.classify("카페 들러서 코스 추천해줘");
 

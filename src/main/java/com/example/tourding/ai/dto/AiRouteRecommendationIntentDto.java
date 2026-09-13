@@ -16,7 +16,13 @@ public class AiRouteRecommendationIntentDto {
     private Integer targetDifficulty;
     private Boolean avoidConstruction;
     private Boolean avoidSteps;
+    private Boolean avoidFords;
     private Boolean avoidIce;
+    private Boolean fastRoute;
+    private String cyclingProfile;
+    private Boolean preferPaved;
+    private Boolean preferBikeRoad;
+    private Boolean avoidMainRoad;
     private Double maxDistanceKm;
     private Map<String, Double> weightUpdate;
     private String explanation;

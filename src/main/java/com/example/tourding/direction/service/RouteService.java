@@ -781,7 +781,13 @@ public class RouteService implements RouteServiceImpl {
                 intent.getTargetDifficulty(),
                 Boolean.TRUE.equals(intent.getAvoidConstruction()),
                 Boolean.TRUE.equals(intent.getAvoidSteps()),
+                Boolean.TRUE.equals(intent.getAvoidFords()),
                 Boolean.TRUE.equals(intent.getAvoidIce()),
+                intent.getFastRoute(),
+                normalizedCyclingProfile(intent.getCyclingProfile()),
+                Boolean.TRUE.equals(intent.getPreferPaved()),
+                Boolean.TRUE.equals(intent.getPreferBikeRoad()),
+                Boolean.TRUE.equals(intent.getAvoidMainRoad()),
                 intent.getWeightUpdate(),
                 wayPoints,
                 wayPointNames
@@ -813,10 +819,10 @@ public class RouteService implements RouteServiceImpl {
                 ? normalized.getSkillLevel()
                 : skillLevelForDifficulty(directive.targetDifficulty());
         return RouteOptionDto.builder()
-                .cyclingProfile(normalized.getCyclingProfile())
-                .fastRoute(normalized.getFastRoute())
+                .cyclingProfile(defaultString(directive.cyclingProfile(), normalized.getCyclingProfile()))
+                .fastRoute(directive.fastRoute() == null ? normalized.getFastRoute() : directive.fastRoute())
                 .avoidSteps(directive.avoidSteps() || Boolean.TRUE.equals(normalized.getAvoidSteps()))
-                .avoidFords(normalized.getAvoidFords())
+                .avoidFords(directive.avoidFords() || Boolean.TRUE.equals(normalized.getAvoidFords()))
                 .skillLevel(skillLevel)
                 .build();
     }
@@ -960,6 +966,13 @@ public class RouteService implements RouteServiceImpl {
             weights.put("surface", weights.get("surface") + 0.10);
             weights.put("efficiency", weights.get("efficiency") + 0.05);
         }
+        if (directive.preferPaved()) {
+            weights.put("surface", weights.get("surface") + 0.20);
+        }
+        if (directive.preferBikeRoad() || directive.avoidMainRoad()) {
+            weights.put("waytype", weights.get("waytype") + 0.20);
+            weights.put("comfort", weights.get("comfort") + 0.10);
+        }
         return normalizeWeights(weights);
     }
 
@@ -988,7 +1001,32 @@ public class RouteService implements RouteServiceImpl {
         if (directive.avoidIce() && hasExtraValue(route, "surface", 13)) {
             score -= 0.35;
         }
+        if (directive.preferPaved()) {
+            double unpaved = unpavedAmount(route);
+            if (unpaved > 5.0) {
+                score -= Math.min(0.30, (unpaved / 100.0) * 0.50);
+            }
+        }
+        if (directive.preferBikeRoad()) {
+            double bikeRoad = summaryAmount(route, "waytype", value -> Set.of(4, 6, 7).contains(value));
+            if (bikeRoad < 20.0) {
+                score -= Math.min(0.25, ((20.0 - bikeRoad) / 20.0) * 0.25);
+            }
+        }
+        if (directive.avoidMainRoad()) {
+            double mainRoad = summaryAmount(route, "waytype", value -> value == 1);
+            if (mainRoad > 5.0) {
+                score -= Math.min(0.30, (mainRoad / 100.0) * 0.60);
+            }
+        }
         return round4(Math.max(0.0, score));
+    }
+
+    private double unpavedAmount(ORSJsonResponse.Route route) {
+        return Math.max(
+                summaryAmount(route, "waytype", value -> value == 5),
+                summaryAmount(route, "surface", value -> Set.of(2, 10, 11, 12, 15, 17).contains(value))
+        );
     }
 
     private Map<String, Double> normalizeWeights(Map<String, Double> weights) {
@@ -1258,6 +1296,16 @@ public class RouteService implements RouteServiceImpl {
         return values.get(index);
     }
 
+    private String normalizedCyclingProfile(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return switch (value) {
+            case "cycling-regular", "cycling-road", "cycling-mountain", "cycling-electric" -> value;
+            default -> null;
+        };
+    }
+
     private String defaultString(String value, String defaultValue) {
         return value == null || value.isBlank() ? defaultValue : value;
     }
@@ -1293,13 +1341,25 @@ public class RouteService implements RouteServiceImpl {
             Integer targetDifficulty,
             boolean avoidConstruction,
             boolean avoidSteps,
+            boolean avoidFords,
             boolean avoidIce,
+            Boolean fastRoute,
+            String cyclingProfile,
+            boolean preferPaved,
+            boolean preferBikeRoad,
+            boolean avoidMainRoad,
             Map<String, Double> weights,
             List<String> wayPoints,
             List<String> wayPointNames
     ) {
         private static RecommendationDirective empty() {
             return new RecommendationDirective(
+                    null,
+                    null,
+                    false,
+                    false,
+                    false,
+                    false,
                     null,
                     null,
                     false,
