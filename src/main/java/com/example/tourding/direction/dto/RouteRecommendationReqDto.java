@@ -11,6 +11,8 @@ public class RouteRecommendationReqDto {
     private Long userId;
     private String start;
     private String goal;
+    private String locationName;
+    private String locateName;
     private Boolean isUsed;
     private String userIntentText;
     private Double maxDistanceKm;

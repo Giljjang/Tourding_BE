@@ -107,7 +107,8 @@ public class RouteService implements RouteServiceImpl {
                 .start(requestDto.getStart())
                 .goal(requestDto.getGoal())
                 .wayPoints(mergedWayPoints("", directive.wayPoints()))
-                .locateName(locateNameForRecommendation(directive.wayPointNames()))
+                .locationName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
+                .locateName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
                 .typeCode(typeCodeForRecommendation(directive.wayPointNames()))
                 .isUsed(requestDto.getIsUsed())
                 .userIntentText(requestDto.getUserIntentText())
@@ -766,8 +767,14 @@ public class RouteService implements RouteServiceImpl {
             throw new CustomException(ErrorCode.AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT);
         }
 
-        List<String> wayPointNames = intent.getWaypointNames() == null ? List.of() : intent.getWaypointNames();
-        List<String> wayPoints = geocodeWayPointNames(wayPointNames);
+        List<String> requestedWayPointNames = intent.getWaypointNames() == null ? List.of() : intent.getWaypointNames();
+        List<ResolvedWaypoint> resolvedWayPoints = geocodeWayPointNames(requestedWayPointNames);
+        List<String> wayPoints = resolvedWayPoints.stream()
+                .map(ResolvedWaypoint::coordinate)
+                .toList();
+        List<String> wayPointNames = resolvedWayPoints.stream()
+                .map(ResolvedWaypoint::name)
+                .toList();
 
         return new RecommendationDirective(
                 maxDistanceKm,
@@ -781,18 +788,21 @@ public class RouteService implements RouteServiceImpl {
         );
     }
 
-    private List<String> geocodeWayPointNames(List<String> wayPointNames) {
+    private List<ResolvedWaypoint> geocodeWayPointNames(List<String> wayPointNames) {
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return List.of();
         }
-        List<String> result = new ArrayList<>();
+        List<ResolvedWaypoint> result = new ArrayList<>();
         for (String name : wayPointNames) {
             KakaoSearchResponse response = kakaoClient.kakoSearchByName(name);
             if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
                 throw new CustomException(ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND);
             }
             KakaoSearchResponse.Document document = response.getDocuments().get(0);
-            result.add(document.getX() + "," + document.getY());
+            result.add(new ResolvedWaypoint(
+                    document.getX() + "," + document.getY(),
+                    defaultString(document.getPlace_name(), name)
+            ));
         }
         return result;
     }
@@ -846,11 +856,14 @@ public class RouteService implements RouteServiceImpl {
         return String.join("|", points);
     }
 
-    private String locateNameForRecommendation(List<String> wayPointNames) {
+    private String locationNameForRecommendation(RouteRecommendationReqDto requestDto, List<String> wayPointNames) {
+        List<String> baseNames = splitCsv(defaultString(requestDto.getLocateName(), requestDto.getLocationName()));
+        String startName = baseNames.isEmpty() ? "출발지" : baseNames.get(0);
+        String goalName = baseNames.size() >= 2 ? baseNames.get(baseNames.size() - 1) : "도착지";
         if (wayPointNames == null || wayPointNames.isEmpty()) {
-            return "출발지,도착지";
+            return startName + "," + goalName;
         }
-        return "출발지," + String.join(",", wayPointNames) + ",도착지";
+        return startName + "," + String.join(",", wayPointNames) + "," + goalName;
     }
 
     private String typeCodeForRecommendation(List<String> wayPointNames) {
@@ -1270,6 +1283,9 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private record RouteCandidateDraft(RouteRequestDto requestDto, RouteOptionDto option) {
+    }
+
+    private record ResolvedWaypoint(String coordinate, String name) {
     }
 
     private record RecommendationDirective(
