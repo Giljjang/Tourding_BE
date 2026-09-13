@@ -82,13 +82,15 @@ public class RouteService implements RouteServiceImpl {
 
         List<RouteCandidateDraft> drafts = candidateDrafts(requestDto, baseOption, directive);
 
-        List<RouteBuildResult> results = drafts.stream()
+        List<RouteBuildResult> candidates = drafts.stream()
                 .map(draft -> CompletableFuture.supplyAsync(
-                        () -> buildRouteResponse(draft.requestDto(), draft.option(), null, true, directive)
+                        () -> safeBuildRouteResponses(draft.requestDto(), draft.option(), null, true, directive, true)
                 ))
                 .map(CompletableFuture::join)
+                .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 
+        List<RouteBuildResult> results = selectRecommendationResults(candidates);
         results.sort(Comparator.<RouteBuildResult>comparingDouble(result -> result.response().getPreferenceScore()).reversed());
         if (!results.isEmpty()) {
             RouteBuildResult best = results.get(0);
@@ -370,15 +372,68 @@ public class RouteService implements RouteServiceImpl {
             boolean includeAnalysis,
             RecommendationDirective directive
     ) {
+        List<RouteBuildResult> results = buildRouteResponses(requestDto, option, fixedScore, includeAnalysis, directive, false);
+        if (results.isEmpty()) {
+            throw new CustomException(ErrorCode.AI_ROUTE_CANDIDATE_EMPTY);
+        }
+        return results.get(0);
+    }
+
+    private List<RouteBuildResult> safeBuildRouteResponses(
+            RouteRequestDto requestDto,
+            RouteOptionDto option,
+            Double fixedScore,
+            boolean includeAnalysis,
+            RecommendationDirective directive,
+            boolean alternativeRoutes
+    ) {
+        try {
+            return buildRouteResponses(requestDto, option, fixedScore, includeAnalysis, directive, alternativeRoutes);
+        } catch (RuntimeException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private List<RouteBuildResult> buildRouteResponses(
+            RouteRequestDto requestDto,
+            RouteOptionDto option,
+            Double fixedScore,
+            boolean includeAnalysis,
+            RecommendationDirective directive,
+            boolean alternativeRoutes
+    ) {
         RouteOptionDto resolvedOption = normalizeOption(option);
         ORSResponse orsResponse = orsCilent.getORSDirection(
                 requestDto.getStart(),
                 requestDto.getGoal(),
                 requestDto.getWayPoints(),
-                resolvedOption
+                resolvedOption,
+                alternativeRoutes
         );
+        if (orsResponse == null || orsResponse.getFeatures() == null || orsResponse.getFeatures().isEmpty()) {
+            return Collections.emptyList();
+        }
 
-        ORSResponse.ORSFeatures feature = orsResponse.getFeatures().get(0);
+        return orsResponse.getFeatures().stream()
+                .map(feature -> buildRouteResultFromFeature(
+                        requestDto,
+                        resolvedOption,
+                        fixedScore,
+                        includeAnalysis,
+                        directive,
+                        feature
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private RouteBuildResult buildRouteResultFromFeature(
+            RouteRequestDto requestDto,
+            RouteOptionDto resolvedOption,
+            Double fixedScore,
+            boolean includeAnalysis,
+            RecommendationDirective directive,
+            ORSResponse.ORSFeatures feature
+    ) {
         ORSResponse.ORSSummary summary = feature.getProperties().getSummary();
         ORSJsonResponse.Route analysisRoute = includeAnalysis ? analysisRouteFromFeature(feature) : null;
 
@@ -407,8 +462,8 @@ public class RouteService implements RouteServiceImpl {
                 .hasIce(hasExtraValue(analysisRoute, "surface", 13))
                 .preferenceScore(score)
                 .appliedOption(resolvedOption)
-                .guides(convertToRouteGuides(orsResponse, locationNames, locationCodes))
-                .paths(convertToRoutePaths(orsResponse))
+                .guides(convertToRouteGuides(feature, locationNames, locationCodes))
+                .paths(convertToRoutePaths(feature))
                 .locations(convertToLocationNames(
                         locationNames,
                         locationCodes,
@@ -544,6 +599,72 @@ public class RouteService implements RouteServiceImpl {
         return result;
     }
 
+    private List<RouteBuildResult> selectRecommendationResults(List<RouteBuildResult> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            throw new CustomException(ErrorCode.AI_ROUTE_CANDIDATE_EMPTY);
+        }
+
+        List<RouteBuildResult> pool = candidates.stream()
+                .filter(result -> result != null && result.response() != null)
+                .collect(Collectors.toCollection(ArrayList::new));
+        pool.sort(Comparator.<RouteBuildResult>comparingDouble(result -> result.response().getPreferenceScore()).reversed());
+
+        List<RouteBuildResult> selected = new ArrayList<>();
+        while (!pool.isEmpty() && selected.size() < 3) {
+            RouteBuildResult next = pool.stream()
+                    .max(Comparator.comparingDouble(result -> diversityAdjustedScore(result, selected)))
+                    .orElse(pool.get(0));
+            selected.add(next);
+            pool.remove(next);
+        }
+
+        int index = 0;
+        while (selected.size() < 3 && !candidates.isEmpty()) {
+            selected.add(candidates.get(index % candidates.size()));
+            index++;
+        }
+        return selected;
+    }
+
+    private double diversityAdjustedScore(RouteBuildResult candidate, List<RouteBuildResult> selected) {
+        double score = defaultDouble(candidate.response().getPreferenceScore(), 0.0);
+        double overlap = selected.stream()
+                .mapToDouble(result -> routeOverlap(candidate.response(), result.response()))
+                .max()
+                .orElse(0.0);
+        return score - overlap * 0.25;
+    }
+
+    private double routeOverlap(RouteGuideRespDto left, RouteGuideRespDto right) {
+        Set<String> leftPoints = routePointKeys(left);
+        Set<String> rightPoints = routePointKeys(right);
+        if (leftPoints.isEmpty() || rightPoints.isEmpty()) {
+            return 0.0;
+        }
+        long shared = leftPoints.stream().filter(rightPoints::contains).count();
+        return (double) shared / Math.min(leftPoints.size(), rightPoints.size());
+    }
+
+    private Set<String> routePointKeys(RouteGuideRespDto route) {
+        if (route == null || route.getPaths() == null) {
+            return Collections.emptySet();
+        }
+        return route.getPaths().stream()
+                .filter(path -> path.getLon() != null && path.getLat() != null)
+                .map(path -> quantizedCoordinate(path.getLon(), path.getLat()))
+                .collect(Collectors.toSet());
+    }
+
+    private String quantizedCoordinate(String lon, String lat) {
+        try {
+            double parsedLon = Math.round(Double.parseDouble(lon) * 10_000.0) / 10_000.0;
+            double parsedLat = Math.round(Double.parseDouble(lat) * 10_000.0) / 10_000.0;
+            return parsedLon + "," + parsedLat;
+        } catch (NumberFormatException e) {
+            return lon + "," + lat;
+        }
+    }
+
     private String[][] parseLocation(String start, String goal, String wayPoints) {
         List<String[]> locationCodes = new ArrayList<>();
         locationCodes.add(start.split(","));
@@ -559,12 +680,11 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private List<RouteGuideStepDto> convertToRouteGuides(
-            ORSResponse orsResponse,
+            ORSResponse.ORSFeatures firstFeature,
             List<String> locationNames,
             String[][] locationCodes
     ) {
         List<RouteGuideStepDto> routeGuides = new ArrayList<>();
-        ORSResponse.ORSFeatures firstFeature = orsResponse.getFeatures().get(0);
         List<List<Double>> coordinates = firstFeature.getGeometry().getCoordinates();
         List<ORSResponse.ORSSegment> segments = firstFeature.getProperties().getSegments();
 
@@ -643,8 +763,7 @@ public class RouteService implements RouteServiceImpl {
         return routeGuides;
     }
 
-    private List<RoutePathRespDto> convertToRoutePaths(ORSResponse orsResponse) {
-        ORSResponse.ORSFeatures feature = orsResponse.getFeatures().get(0);
+    private List<RoutePathRespDto> convertToRoutePaths(ORSResponse.ORSFeatures feature) {
         List<List<Double>> coordinates = feature.getGeometry().getCoordinates();
 
         List<RoutePathRespDto> routePaths = new ArrayList<>();
@@ -657,6 +776,13 @@ public class RouteService implements RouteServiceImpl {
                     .build());
         }
         return routePaths;
+    }
+
+    private List<RoutePathRespDto> convertToRoutePaths(ORSResponse orsResponse) {
+        if (orsResponse == null || orsResponse.getFeatures() == null || orsResponse.getFeatures().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return convertToRoutePaths(orsResponse.getFeatures().get(0));
     }
 
     private List<RouteLocationNameRespDto> convertToLocationNames(
@@ -841,11 +967,19 @@ public class RouteService implements RouteServiceImpl {
             RouteOptionDto baseOption,
             RecommendationDirective directive
     ) {
-        return List.of(
-                new RouteCandidateDraft(requestDto, baseOption),
-                new RouteCandidateDraft(requestDto, conservativeOption(baseOption)),
-                new RouteCandidateDraft(requestDto, fastOption(baseOption))
-        );
+        List<RouteOptionDto> options = new ArrayList<>();
+        options.add(baseOption);
+        options.add(conservativeOption(baseOption));
+        options.add(fastOption(baseOption));
+        options.add(roadOption(baseOption, directive));
+        options.add(bikeFriendlyOption(baseOption, directive));
+
+        Set<String> seen = new HashSet<>();
+        return options.stream()
+                .map(this::normalizeOption)
+                .filter(option -> seen.add(optionSignature(option)))
+                .map(option -> new RouteCandidateDraft(requestDto, option))
+                .collect(Collectors.toList());
     }
 
     private String mergedWayPoints(String baseWayPoints, List<String> additionalWayPoints) {
@@ -925,6 +1059,36 @@ public class RouteService implements RouteServiceImpl {
                 .avoidFords(base.getAvoidFords())
                 .skillLevel(base.getSkillLevel())
                 .build();
+    }
+
+    private RouteOptionDto roadOption(RouteOptionDto base, RecommendationDirective directive) {
+        return RouteOptionDto.builder()
+                .cyclingProfile(defaultString(directive.cyclingProfile(), "cycling-road"))
+                .fastRoute(true)
+                .avoidSteps(base.getAvoidSteps())
+                .avoidFords(base.getAvoidFords())
+                .skillLevel(base.getSkillLevel())
+                .build();
+    }
+
+    private RouteOptionDto bikeFriendlyOption(RouteOptionDto base, RecommendationDirective directive) {
+        return RouteOptionDto.builder()
+                .cyclingProfile(defaultString(directive.cyclingProfile(), "cycling-regular"))
+                .fastRoute(false)
+                .avoidSteps(true)
+                .avoidFords(true)
+                .skillLevel(lowerSkillLevel(base.getSkillLevel()))
+                .build();
+    }
+
+    private String optionSignature(RouteOptionDto option) {
+        return String.join("|",
+                defaultString(option.getCyclingProfile(), ""),
+                String.valueOf(Boolean.TRUE.equals(option.getFastRoute())),
+                String.valueOf(Boolean.TRUE.equals(option.getAvoidSteps())),
+                String.valueOf(Boolean.TRUE.equals(option.getAvoidFords())),
+                defaultString(option.getSkillLevel(), "")
+        );
     }
 
     private String lowerSkillLevel(String skillLevel) {

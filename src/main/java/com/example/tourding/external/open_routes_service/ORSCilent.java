@@ -31,7 +31,18 @@ public class ORSCilent {
     }
 
     public ORSResponse getORSDirection(String start, String goal, String wayPoints, RouteOptionDto routeOption) {
+        return getORSDirection(start, goal, wayPoints, routeOption, false);
+    }
+
+    public ORSResponse getORSDirection(
+            String start,
+            String goal,
+            String wayPoints,
+            RouteOptionDto routeOption,
+            boolean alternativeRoutes
+    ) {
         RouteOptionDto resolvedOption = routeOption == null ? RouteOptionDto.defaults() : routeOption;
+        boolean alternativeRoutesEnabled = alternativeRoutes && (wayPoints == null || wayPoints.isBlank());
         String cacheKey = String.join("|",
                 defaultString(start),
                 defaultString(goal),
@@ -40,7 +51,8 @@ public class ORSCilent {
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getFastRoute())),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidSteps())),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFords())),
-                defaultString(resolvedOption.getSkillLevel())
+                defaultString(resolvedOption.getSkillLevel()),
+                String.valueOf(alternativeRoutesEnabled)
         );
         Cache cache = cacheManager.getCache("orsDirections");
         if (cache != null) {
@@ -54,7 +66,15 @@ public class ORSCilent {
             }
         }
 
-        ORSResponse response = fetchORSDirection(start, goal, wayPoints, resolvedOption);
+        ORSResponse response;
+        try {
+            response = fetchORSDirection(start, goal, wayPoints, resolvedOption, alternativeRoutesEnabled);
+        } catch (RuntimeException e) {
+            if (!alternativeRoutesEnabled) {
+                throw e;
+            }
+            response = fetchORSDirection(start, goal, wayPoints, resolvedOption, false);
+        }
         if (cache != null) {
             try {
                 cache.put(cacheKey, response);
@@ -69,7 +89,8 @@ public class ORSCilent {
             String start,
             String goal,
             String wayPoints,
-            RouteOptionDto resolvedOption
+            RouteOptionDto resolvedOption,
+            boolean alternativeRoutes
     ) {
         try {
             String profile = resolvedOption.getCyclingProfile() == null || resolvedOption.getCyclingProfile().isBlank()
@@ -112,6 +133,13 @@ public class ORSCilent {
             body.put("extra_info", List.of("steepness", "suitability", "surface", "waytype"));
             body.put("attributes", List.of("avgspeed", "detourfactor", "percentage"));
             body.put("options", buildOptions(resolvedOption));
+            if (alternativeRoutes) {
+                body.put("alternative_routes", Map.of(
+                        "target_count", 3,
+                        "share_factor", 0.5,
+                        "weight_factor", 1.8
+                ));
+            }
 
             String requestBody = objectMapper.writeValueAsString(body);
 
