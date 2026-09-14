@@ -971,7 +971,12 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private KakaoSearchResponse.Document findWaypointByName(String name) {
-        KakaoSearchResponse response = kakaoClient.kakoSearchByName(name);
+        KakaoSearchResponse response;
+        try {
+            response = kakaoClient.kakoSearchByName(name);
+        } catch (RuntimeException e) {
+            return null;
+        }
         if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
             return null;
         }

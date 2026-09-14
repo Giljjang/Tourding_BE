@@ -14,6 +14,72 @@ class AiRouteRecommendationIntentServiceTest {
     private final AiRouteRecommendationIntentService service = new AiRouteRecommendationIntentService(openAiClient);
 
     @Test
+    void classifiesMultipleConditionSentencesWithoutOpenAi() {
+        AiRouteRecommendationIntentDto case1 = service.classify("오르막이 많은 어려운코스로 경로를 설정해주고, 가다가 근처 올리브영도 한번 들러줘");
+        assertThat(case1.isSupported()).isTrue();
+        assertThat(case1.getTargetDifficulty()).isEqualTo(3);
+        assertThat(case1.getWaypointNames()).containsExactly("올리브영");
+
+        AiRouteRecommendationIntentDto case2 = service.classify("30km 이하로 제일 빠른길로 가고, 중간에 스타벅스 들렸다가줘");
+        assertThat(case2.isSupported()).isTrue();
+        assertThat(case2.getMaxDistanceKm()).isEqualTo(30.0);
+        assertThat(case2.getFastRoute()).isTrue();
+        assertThat(case2.getWaypointNames()).containsExactly("스타벅스");
+
+        AiRouteRecommendationIntentDto case3 = service.classify("로드 자전거로 포장도로 위주로 영일대 거쳐서 추천해줘");
+        assertThat(case3.isSupported()).isTrue();
+        assertThat(case3.getCyclingProfile()).isEqualTo("cycling-road");
+        assertThat(case3.getPreferPaved()).isTrue();
+        assertThat(case3.getWaypointNames()).containsExactly("영일대");
+
+        AiRouteRecommendationIntentDto case4 = service.classify("초보도 갈 수 있게 계단이랑 물길 피하고 올리브영 들러서 가줘");
+        assertThat(case4.isSupported()).isTrue();
+        assertThat(case4.getTargetDifficulty()).isEqualTo(1);
+        assertThat(case4.getAvoidSteps()).isTrue();
+        assertThat(case4.getAvoidFords()).isTrue();
+        assertThat(case4.getWaypointNames()).containsExactly("올리브영");
+
+        AiRouteRecommendationIntentDto case5 = service.classify("큰도로 피해서 자전거도로 우선으로 가고, 첨성대 찍고 10km 이하로 가줘");
+        assertThat(case5.isSupported()).isTrue();
+        assertThat(case5.getAvoidMainRoad()).isTrue();
+        assertThat(case5.getPreferBikeRoad()).isTrue();
+        assertThat(case5.getMaxDistanceKm()).isEqualTo(10.0);
+        assertThat(case5.getWaypointNames()).containsExactly("첨성대");
+
+        AiRouteRecommendationIntentDto case6 = service.classify("전기자전거라서 여유롭게 보문호 돌아갔다가 가줘");
+        assertThat(case6.isSupported()).isTrue();
+        assertThat(case6.getCyclingProfile()).isEqualTo("cycling-electric");
+        assertThat(case6.getFastRoute()).isFalse();
+        assertThat(case6.getWaypointNames()).containsExactly("보문호");
+
+        AiRouteRecommendationIntentDto case7 = service.classify("산악자전거로 임도 있는 힘든 코스로 황리단길 들렀다가 가줘");
+        assertThat(case7.isSupported()).isTrue();
+        assertThat(case7.getCyclingProfile()).isEqualTo("cycling-mountain");
+        assertThat(case7.getTargetDifficulty()).isEqualTo(4);
+        assertThat(case7.getWaypointNames()).containsExactly("황리단길");
+
+        AiRouteRecommendationIntentDto case8 = service.classify("빙판길이랑 공사구간은 피하고 빠른길로 올리브영 들려서 가줘");
+        assertThat(case8.isSupported()).isTrue();
+        assertThat(case8.getAvoidIce()).isTrue();
+        assertThat(case8.getAvoidConstruction()).isTrue();
+        assertThat(case8.getFastRoute()).isTrue();
+        assertThat(case8.getWaypointNames()).containsExactly("올리브영");
+
+        AiRouteRecommendationIntentDto case9 = service.classify("포장도로 위주로 큰길 피하고 스타벅스 거쳐서 20키로 안으로 추천해줘");
+        assertThat(case9.isSupported()).isTrue();
+        assertThat(case9.getPreferPaved()).isTrue();
+        assertThat(case9.getAvoidMainRoad()).isTrue();
+        assertThat(case9.getMaxDistanceKm()).isEqualTo(20.0);
+        assertThat(case9.getWaypointNames()).containsExactly("스타벅스");
+
+        AiRouteRecommendationIntentDto case10 = service.classify("근처 카페 가고싶어");
+        assertThat(case10.isSupported()).isFalse();
+        assertThat(case10.getExplanation()).contains("시설 탐색");
+
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
     void classifiesUphillAvoidanceAsEasyRouteWithoutOpenAi() {
         AiRouteRecommendationIntentDto result = service.classify("오르막 피해줘");
 
@@ -47,6 +113,25 @@ class AiRouteRecommendationIntentServiceTest {
         AiRouteRecommendationIntentDto result = service.classify("올리브영 들렸다가줘");
 
         assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void removesLeadingTravelFillerFromWaypointName() {
+        AiRouteRecommendationIntentDto result = service.classify("가다가 올리브영 들렸다가줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesHardUphillRouteWithBrandWaypoint() {
+        AiRouteRecommendationIntentDto result = service.classify("오르막이 많은 어려운코스로 경로를 설정해주고, 가다가 근처 올리브영도 한번 들러줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getTargetDifficulty()).isEqualTo(3);
         assertThat(result.getWaypointNames()).containsExactly("올리브영");
         verifyNoInteractions(openAiClient);
     }

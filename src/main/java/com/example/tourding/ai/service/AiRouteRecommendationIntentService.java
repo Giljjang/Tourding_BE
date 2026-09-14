@@ -131,27 +131,42 @@ public class AiRouteRecommendationIntentService {
     }
 
     private String cleanWaypointName(String value) {
-        return value == null ? "" : value
+        if (value == null) {
+            return "";
+        }
+        String cleaned = value.trim();
+        String previous;
+        do {
+            previous = cleaned;
+            cleaned = cleaned
+                    .replaceAll("^.*(?:피하고|피해서|빼고|제외하고|설정해주고|추천해주고|여유롭게|빠른길로|위주로|코스로|길로)\\s*", "")
+                    .replaceAll("^(가다가|가는\\s*길에|중간에|도중에|오는\\s*길에|가는길에|오는길에|잠깐|한번|좀|근처에|근처|주변에|주변)\\s*", "")
+                    .trim();
+        } while (!previous.equals(cleaned));
+        return cleaned
                 .replaceAll("(가는길에|중간에|그리고|다음|먼저|코스에|추가|포함|해서|하고|갔다가|갔다|다가|줘|주세요|으로|로)$", "")
+                .replaceAll("(도|을|를|에|에서)?\\s*(한번|잠깐|좀)$", "")
+                .replaceAll("(도|을|를)$", "")
                 .replaceAll("(난이도|쉬운|보통|어려운|상급|초보|키로|킬로|km|KM|이하|미만|정도)", "")
                 .trim();
     }
 
     private Integer targetDifficulty(String text) {
-        if (containsAny(text,
-                "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "낮은난이도",
-                "오르막", "업힐", "경사", "언덕", "평지", "완만", "평탄", "덜힘든", "덜힘들",
-                "힘들지않은", "힘들지않게")) {
-            return 1;
+        if (containsAny(text, "난이도4", "4단계", "상급", "전문가", "힘든", "빡센", "도전")) {
+            return 4;
+        }
+        if (containsAny(text, "난이도3", "3단계", "어려운", "숙련", "오르막많", "오르막이많", "업힐많", "경사많", "언덕많")) {
+            return 3;
         }
         if (containsAny(text, "난이도2", "2단계", "보통", "일반")) {
             return 2;
         }
-        if (containsAny(text, "난이도3", "3단계", "어려운", "숙련")) {
-            return 3;
-        }
-        if (containsAny(text, "난이도4", "4단계", "상급", "전문가", "힘든", "빡센", "도전")) {
-            return 4;
+        if (containsAny(text,
+                "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "낮은난이도",
+                "오르막피", "오르막없", "오르막적", "업힐피", "업힐없", "업힐적",
+                "경사피", "경사없", "경사적", "언덕피", "언덕없", "언덕적",
+                "평지", "완만", "평탄", "덜힘든", "덜힘들", "힘들지않은", "힘들지않게")) {
+            return 1;
         }
         return null;
     }
