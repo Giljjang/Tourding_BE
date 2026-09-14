@@ -133,12 +133,14 @@ public class OpenAiClient {
                     지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit, route_speed, cycling_profile, surface_preference, waytype_preference다.
                     이외 요청만 있으면 supported=false로 반환한다.
                     waypoint_names는 사용자가 경유하고 싶은 구체적인 장소명 배열이다.
-                    "들러줘", "들려줘", "들렸다가", "들릴래", "들르고 싶어", "들리고 싶어", "들리고싶어요", "들리자", "갔다가", "가자", "찍고", "거쳐서"는 모두 waypoint_add 의도다.
+                    "들러줘", "들려줘", "들렸다가", "들릴래", "들르고 싶어", "들리고 싶어", "들리고싶어요", "가고 싶어", "가볼래", "들리자", "갔다가", "가자", "찍고", "거쳐서"는 모두 waypoint_add 의도다.
                     waypoint_names에는 카카오 장소 검색에 넣을 최소 장소명/브랜드명만 넣는다.
                     예: "제일 어려운코스로 가는데 옹짬뽕 들렸다가 가줘" -> waypoint_names=["옹짬뽕"].
                     예: "가다가 근처 올리브영도 한번 들러줘" -> waypoint_names=["올리브영"].
                     예: "가는길에 맥도날드랑 죽천해수욕장 들렸다 가는 코스" -> waypoint_names=["맥도날드","죽천해수욕장"].
-                    경로 조건, "가다가", "근처", "한번", "들러줘" 같은 연결어/조사는 waypoint_names에서 제거한다.
+                    예: "경로상 주변에 GS 편의점 있으면 들리고싶어" -> waypoint_names=["GS25"].
+                    경로 조건, "가다가", "근처", "한번", "있으면", "들러줘" 같은 연결어/조사는 waypoint_names에서 제거한다.
+                    GS/지에스 편의점은 GS25, CU/씨유 편의점은 CU, 세븐 편의점은 세븐일레븐처럼 카카오 검색에 적합한 브랜드명으로 반환한다.
                     여러 장소가 "랑", "이랑", "하고", "와", "과", "및"으로 연결되면 순서를 유지해 각각 분리한다.
                     카페, 화장실, 편의점, 맛집처럼 시설 종류만 있고 구체적인 장소명이 없으면 supported=false로 반환한다.
                     target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.

@@ -102,6 +102,25 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void cleansConditionalStoreNameFromOpenAi() {
+        AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
+        ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
+        String text = "경로상 주변에 GS 편의점 있으면 들리고싶어";
+        when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
+                AiRouteRecommendationIntentDto.builder()
+                        .waypointNames(java.util.List.of("GS 편의점 있으면"))
+                        .supported(true)
+                        .build()
+        );
+
+        AiRouteRecommendationIntentDto result = aiFirstService.classify(text);
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("GS25");
+        verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
+
+    @Test
     void cleansSpeechRecognitionNoiseFromWaypointName() {
         AiRouteRecommendationIntentDto result = service.classify("제일 길고 어려운길류 가는데 옹짬뽕 들렸다가 가줘");
 
@@ -172,7 +191,7 @@ class AiRouteRecommendationIntentServiceTest {
 
         AiRouteRecommendationIntentDto case10 = service.classify("근처 카페 가고싶어");
         assertThat(case10.isSupported()).isFalse();
-        assertThat(case10.getExplanation()).contains("시설 탐색");
+        assertThat(case10.getExplanation()).contains("구체적인 장소명");
 
         verifyNoInteractions(openAiClient);
     }
@@ -192,7 +211,7 @@ class AiRouteRecommendationIntentServiceTest {
         AiRouteRecommendationIntentDto result = service.classify("근처 카페 가고싶어");
 
         assertThat(result.isSupported()).isFalse();
-        assertThat(result.getExplanation()).contains("시설 탐색");
+        assertThat(result.getExplanation()).contains("구체적인 장소명");
         verifyNoInteractions(openAiClient);
     }
 
@@ -280,6 +299,44 @@ class AiRouteRecommendationIntentServiceTest {
 
         assertThat(result.isSupported()).isTrue();
         assertThat(result.getWaypointNames()).containsExactly("맥도날드", "죽천해수욕장");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void cleansConditionalStoreNameWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("경로상 주변에 GS 편의점 있으면 들리고싶어");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("GS25");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void normalizesCommonBrandAndConditionalWaypointPhrasesWithoutOpenAi() {
+        AiRouteRecommendationIntentDto case1 = service.classify("경로상 주변에 지에스 편의점이 있으면 들리고 싶다고");
+        assertThat(case1.isSupported()).isTrue();
+        assertThat(case1.getWaypointNames()).containsExactly("GS25");
+
+        AiRouteRecommendationIntentDto case2 = service.classify("가는 길에 씨유 보이면 들러줘");
+        assertThat(case2.isSupported()).isTrue();
+        assertThat(case2.getWaypointNames()).containsExactly("CU");
+
+        AiRouteRecommendationIntentDto case3 = service.classify("근처에 있는 세븐 편의점 나오면 들를래");
+        assertThat(case3.isSupported()).isTrue();
+        assertThat(case3.getWaypointNames()).containsExactly("세븐일레븐");
+
+        AiRouteRecommendationIntentDto case4 = service.classify("가능하면 이마트24 편의점 가고 싶어");
+        assertThat(case4.isSupported()).isTrue();
+        assertThat(case4.getWaypointNames()).containsExactly("이마트24");
+
+        AiRouteRecommendationIntentDto case5 = service.classify("올영이 있으면 들르고 싶어");
+        assertThat(case5.isSupported()).isTrue();
+        assertThat(case5.getWaypointNames()).containsExactly("올리브영");
+
+        AiRouteRecommendationIntentDto case6 = service.classify("맥날하고 스벅 들렸다가 가줘");
+        assertThat(case6.isSupported()).isTrue();
+        assertThat(case6.getWaypointNames()).containsExactly("맥도날드", "스타벅스");
+
         verifyNoInteractions(openAiClient);
     }
 

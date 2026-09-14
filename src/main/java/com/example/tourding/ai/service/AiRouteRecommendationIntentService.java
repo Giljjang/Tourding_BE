@@ -152,7 +152,7 @@ public class AiRouteRecommendationIntentService {
     private List<String> waypointNames(String text) {
         List<String> result = new ArrayList<>();
         addWaypointMatches(result, text, "경유지\\s*[:：]?\\s*([^,，.。]+)");
-        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들릴래|들를래|들르고\\s*싶어요|들르고\\s*싶어|들르고싶어요|들르고싶어|들리고\\s*싶어요|들리고\\s*싶어|들리고싶어요|들리고싶어|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|돌아갔다가|돌아가서|돌아서)");
+        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들릴래|들를래|들르고\\s*싶\\S*|들르고싶\\S*|들리고\\s*싶\\S*|들리고싶\\S*|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|가고\\s*싶\\S*|가고싶\\S*|가볼래|돌아갔다가|돌아가서|돌아서)");
         return result.stream()
                 .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
@@ -193,15 +193,43 @@ public class AiRouteRecommendationIntentService {
             cleaned = cleaned
                     .replaceAll("^.*(?:피하고|피해서|빼고|제외하고|설정해주고|추천해주고|여유롭게|빠른길로|위주로|코스로|길로|길류|길을|가는\\s*데|가는는데|가는데|가다가)\\s*", "")
                     .replaceAll("^.*(?:에서)\\s*", "")
-                    .replaceAll("^(가다가|가는\\s*길에|중간에|도중에|오는\\s*길에|가는길에|오는길에|잠깐|한번|좀|근처에|근처|주변에|주변)\\s*", "")
+                    .replaceAll("^(가다가|가는\\s*길에|중간에|도중에|오는\\s*길에|가는길에|오는길에|경로상\\s*주변에|경로\\s*주변에|경로상|가능하면|가능하다면|갈\\s*수\\s*있으면|잠깐|한번|좀|근처에|근처|주변에|주변|있는|보이는|나오는)\\s*", "")
                     .trim();
         } while (!previous.equals(cleaned));
-        return cleaned
+        String normalized = cleaned
                 .replaceAll("(가는길에|중간에|그리고|다음|먼저|코스에|추가|포함|해서|하고|갔다가|갔다|다가|줘|주세요|으로|로)$", "")
+                .replaceAll("(?:이|가)?\\s*(있으면|있다면|있음|있을\\s*때|가능하면|가능하다면|보이면|나오면)$", "")
                 .replaceAll("(도|을|를|에|에서)?\\s*(한번|잠깐|좀)$", "")
-                .replaceAll("(도|을|를)$", "")
+                .replaceAll("(도|은|는|이|가|을|를)$", "")
                 .replaceAll("(난이도|쉬운|보통|어려운|상급|초보|키로|킬로|km|KM|이하|미만|정도)", "")
                 .trim();
+        return normalizeWaypointName(normalized);
+    }
+
+    private String normalizeWaypointName(String name) {
+        String compact = name.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+        if (Set.of("gs", "gs25", "지에스", "지에스25", "gs편의점", "gs25편의점", "지에스편의점", "지에스25편의점", "편의점gs", "편의점gs25", "편의점지에스", "편의점지에스25").contains(compact)) {
+            return "GS25";
+        }
+        if (Set.of("cu", "씨유", "cu편의점", "씨유편의점", "편의점cu", "편의점씨유").contains(compact)) {
+            return "CU";
+        }
+        if (Set.of("세븐", "세븐일레븐", "7eleven", "seveneleven", "세븐편의점", "세븐일레븐편의점", "7eleven편의점", "편의점세븐", "편의점세븐일레븐").contains(compact)) {
+            return "세븐일레븐";
+        }
+        if (Set.of("이마트24", "emart24", "이마트24편의점", "emart24편의점", "편의점이마트24", "편의점emart24").contains(compact)) {
+            return "이마트24";
+        }
+        if (Set.of("올영", "올리브영").contains(compact)) {
+            return "올리브영";
+        }
+        if (Set.of("맥날", "맥도날드").contains(compact)) {
+            return "맥도날드";
+        }
+        if (Set.of("스벅", "스타벅스").contains(compact)) {
+            return "스타벅스";
+        }
+        return name;
     }
 
     private Integer targetDifficulty(String text) {
@@ -391,7 +419,8 @@ public class AiRouteRecommendationIntentService {
     private boolean hasWaypointDirective(String text) {
         return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "들렸다", "들려",
                 "들릴래", "들를래", "들르고싶어", "들르고싶어요",
-                "들리고싶어", "들리고싶어요", "들리자", "거쳐", "거치", "찍고", "갔다가", "가자",
+                "들르고싶", "들리고싶어", "들리고싶어요", "들리고싶", "들리자", "거쳐", "거치", "찍고", "갔다가", "가자",
+                "가고싶", "가볼래",
                 "돌아갔다", "돌아가서", "돌아서");
     }
 
