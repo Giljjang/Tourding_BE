@@ -137,7 +137,9 @@ public class OpenAiClient {
                     waypoint_names에는 카카오 장소 검색에 넣을 최소 장소명/브랜드명만 넣는다.
                     예: "제일 어려운코스로 가는데 옹짬뽕 들렸다가 가줘" -> waypoint_names=["옹짬뽕"].
                     예: "가다가 근처 올리브영도 한번 들러줘" -> waypoint_names=["올리브영"].
+                    예: "가는길에 맥도날드랑 죽천해수욕장 들렸다 가는 코스" -> waypoint_names=["맥도날드","죽천해수욕장"].
                     경로 조건, "가다가", "근처", "한번", "들러줘" 같은 연결어/조사는 waypoint_names에서 제거한다.
+                    여러 장소가 "랑", "이랑", "하고", "와", "과", "및"으로 연결되면 순서를 유지해 각각 분리한다.
                     카페, 화장실, 편의점, 맛집처럼 시설 종류만 있고 구체적인 장소명이 없으면 supported=false로 반환한다.
                     target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.
                     avoid_construction, avoid_steps, avoid_fords, avoid_ice는 각각 공사구간, 계단, 물길/도섭, 빙판길 제외 요청 여부다.

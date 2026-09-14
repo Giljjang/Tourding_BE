@@ -76,7 +76,7 @@ public class AiRouteRecommendationIntentService {
         List<String> waypointNames = result.getWaypointNames() == null
                 ? List.of()
                 : result.getWaypointNames().stream()
-                .map(this::cleanWaypointName)
+                .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
                 .filter(name -> !isGenericFacilityName(name))
                 .distinct()
@@ -150,7 +150,7 @@ public class AiRouteRecommendationIntentService {
         addWaypointMatches(result, text, "경유지\\s*[:：]?\\s*([^,，.。]+)");
         addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들리고\\s*싶어요|들리고\\s*싶어|들리고싶어요|들리고싶어|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|돌아갔다가|돌아가서|돌아서)");
         return result.stream()
-                .map(this::cleanWaypointName)
+                .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
                 .filter(name -> !isGenericFacilityName(name))
                 .distinct()
@@ -162,6 +162,20 @@ public class AiRouteRecommendationIntentService {
         while (matcher.find()) {
             result.add(matcher.group(1));
         }
+    }
+
+    private List<String> splitWaypointNames(String value) {
+        String cleaned = cleanWaypointName(value);
+        if (cleaned.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(cleaned
+                        .replaceAll("\\s*(?:,|，|/|\\||\\+|&|그리고|및)\\s*", "|")
+                        .replaceAll("(?:이랑|랑|하고|와|과)\\s+", "|")
+                        .split("\\|"))
+                .map(this::cleanWaypointName)
+                .filter(name -> !name.isBlank())
+                .toList();
     }
 
     private String cleanWaypointName(String value) {

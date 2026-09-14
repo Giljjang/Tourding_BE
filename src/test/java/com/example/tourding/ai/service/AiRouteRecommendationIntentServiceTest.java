@@ -63,6 +63,25 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void splitsCombinedWaypointNamesFromOpenAi() {
+        AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
+        ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
+        String text = "가는길에 맥도날드랑 죽천해수욕장 들렸다 가는 코스로 해줘";
+        when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
+                AiRouteRecommendationIntentDto.builder()
+                        .waypointNames(java.util.List.of("맥도날드랑 죽천해수욕장"))
+                        .supported(true)
+                        .build()
+        );
+
+        AiRouteRecommendationIntentDto result = aiFirstService.classify(text);
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("맥도날드", "죽천해수욕장");
+        verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
+
+    @Test
     void cleansSpeechRecognitionNoiseFromWaypointName() {
         AiRouteRecommendationIntentDto result = service.classify("제일 길고 어려운길류 가는데 옹짬뽕 들렸다가 가줘");
 
@@ -219,6 +238,15 @@ class AiRouteRecommendationIntentServiceTest {
 
         assertThat(result.isSupported()).isTrue();
         assertThat(result.getWaypointNames()).containsExactly("칠포해수욕장", "올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void splitsWaypointNamesConnectedByParticleWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("가는길에 맥도날드랑 죽천해수욕장 들렸다 가는 코스로 해줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("맥도날드", "죽천해수욕장");
         verifyNoInteractions(openAiClient);
     }
 
