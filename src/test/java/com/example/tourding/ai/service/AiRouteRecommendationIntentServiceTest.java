@@ -43,6 +43,24 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void classifiesWaypointWithNaturalVisitExpressionsWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("올리브영 들렸다가줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesWaypointWithPassByExpressionsWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("보문호 거쳐서 첨성대 찍고 가줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("보문호", "첨성대");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
     void classifiesFastRouteWithoutOpenAi() {
         AiRouteRecommendationIntentDto result = service.classify("제일 빠른길로 안내해줘");
 

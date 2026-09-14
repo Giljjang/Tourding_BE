@@ -114,7 +114,7 @@ public class AiRouteRecommendationIntentService {
     private List<String> waypointNames(String text) {
         List<String> result = new ArrayList<>();
         addWaypointMatches(result, text, "경유지\\s*[:：]?\\s*([^,，.。]+)");
-        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들러|들렀|들렸|거쳐)");
+        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|거쳐서|거쳐|거치고|찍고|돌아갔다가|돌아가서|돌아서)");
         return result.stream()
                 .map(this::cleanWaypointName)
                 .filter(name -> name.length() >= 2)
@@ -132,7 +132,7 @@ public class AiRouteRecommendationIntentService {
 
     private String cleanWaypointName(String value) {
         return value == null ? "" : value
-                .replaceAll("(가는길에|중간에|그리고|다음|먼저|코스에|추가|포함|해서|하고|으로|로)$", "")
+                .replaceAll("(가는길에|중간에|그리고|다음|먼저|코스에|추가|포함|해서|하고|갔다가|갔다|다가|줘|주세요|으로|로)$", "")
                 .replaceAll("(난이도|쉬운|보통|어려운|상급|초보|키로|킬로|km|KM|이하|미만|정도)", "")
                 .trim();
     }
@@ -321,7 +321,7 @@ public class AiRouteRecommendationIntentService {
     }
 
     private boolean hasWaypointDirective(String text) {
-        return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "거쳐", "거치");
+        return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "들렸다", "들려", "거쳐", "거치", "찍고", "돌아갔다", "돌아가서", "돌아서");
     }
 
     private boolean isGenericFacilityName(String name) {

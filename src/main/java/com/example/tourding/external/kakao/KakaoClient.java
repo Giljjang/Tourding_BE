@@ -1,6 +1,5 @@
 package com.example.tourding.external.kakao;
 
-import com.example.tourding.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -10,8 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -44,15 +43,19 @@ public class KakaoClient {
     private String createUrl(String x, String y, String radius, String query) {
         StringBuilder url = new StringBuilder("https://dapi.kakao.com/v2/local/search/keyword.json?");
 
-        if (x != null) url.append("&x=" + x);
-        if (y != null) url.append("&y=" + y);
-        if (radius != null) url.append("&radius=" + radius);
-        if (query != null) url.append("&query=" + query);
+        if (x != null) url.append("&x=").append(encode(x));
+        if (y != null) url.append("&y=").append(encode(y));
+        if (radius != null) url.append("&radius=").append(encode(radius));
+        if (query != null) url.append("&query=").append(encode(query));
         return url.toString();
     }
 
     private String createUrl(String query) {
         return createUrl(null, null, null, query);
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
 }

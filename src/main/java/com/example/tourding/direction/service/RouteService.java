@@ -894,7 +894,7 @@ public class RouteService implements RouteServiceImpl {
         }
 
         List<String> requestedWayPointNames = intent.getWaypointNames() == null ? List.of() : intent.getWaypointNames();
-        List<ResolvedWaypoint> resolvedWayPoints = geocodeWayPointNames(requestedWayPointNames);
+        List<ResolvedWaypoint> resolvedWayPoints = geocodeWayPointNames(requestDto, requestedWayPointNames);
         List<String> wayPoints = resolvedWayPoints.stream()
                 .map(ResolvedWaypoint::coordinate)
                 .toList();
@@ -920,23 +920,124 @@ public class RouteService implements RouteServiceImpl {
         );
     }
 
-    private List<ResolvedWaypoint> geocodeWayPointNames(List<String> wayPointNames) {
+    private List<ResolvedWaypoint> geocodeWayPointNames(RouteRecommendationReqDto requestDto, List<String> wayPointNames) {
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return List.of();
         }
         List<ResolvedWaypoint> result = new ArrayList<>();
         for (String name : wayPointNames) {
-            KakaoSearchResponse response = kakaoClient.kakoSearchByName(name);
-            if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
+            KakaoSearchResponse.Document document = findWaypointNearRoute(requestDto, name)
+                    .orElseGet(() -> findWaypointByName(name));
+            if (document == null) {
                 throw new CustomException(ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND);
             }
-            KakaoSearchResponse.Document document = response.getDocuments().get(0);
             result.add(new ResolvedWaypoint(
                     document.getX() + "," + document.getY(),
                     defaultString(document.getPlace_name(), name)
             ));
         }
         return result;
+    }
+
+    private Optional<KakaoSearchResponse.Document> findWaypointNearRoute(RouteRecommendationReqDto requestDto, String name) {
+        List<Double> start = parseCoordinate(requestDto.getStart());
+        List<Double> goal = parseCoordinate(requestDto.getGoal());
+        String radius = routeWaypointSearchRadius(start, goal);
+
+        Map<String, KakaoSearchResponse.Document> candidates = new LinkedHashMap<>();
+        for (SearchPoint point : routeSearchPoints(start, goal)) {
+            KakaoSearchResponse response;
+            try {
+                response = kakaoClient.kakaoSearchByLocation(
+                        String.valueOf(point.lon()),
+                        String.valueOf(point.lat()),
+                        radius,
+                        name
+                );
+            } catch (RuntimeException e) {
+                continue;
+            }
+            if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
+                continue;
+            }
+            for (KakaoSearchResponse.Document document : response.getDocuments()) {
+                if (hasCoordinate(document)) {
+                    candidates.putIfAbsent(kakaoDocumentKey(document), document);
+                }
+            }
+        }
+        return candidates.values().stream()
+                .min(Comparator.comparingDouble(document -> routeDetourKm(start, goal, document)));
+    }
+
+    private KakaoSearchResponse.Document findWaypointByName(String name) {
+        KakaoSearchResponse response = kakaoClient.kakoSearchByName(name);
+        if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
+            return null;
+        }
+        return response.getDocuments().stream()
+                .filter(this::hasCoordinate)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean hasCoordinate(KakaoSearchResponse.Document document) {
+        return document != null
+                && document.getX() != null
+                && !document.getX().isBlank()
+                && document.getY() != null
+                && !document.getY().isBlank();
+    }
+
+    private String kakaoDocumentKey(KakaoSearchResponse.Document document) {
+        if (document.getId() != null && !document.getId().isBlank()) {
+            return document.getId();
+        }
+        return document.getX() + "," + document.getY();
+    }
+
+    private List<SearchPoint> routeSearchPoints(List<Double> start, List<Double> goal) {
+        double startLon = start.get(0);
+        double startLat = start.get(1);
+        double goalLon = goal.get(0);
+        double goalLat = goal.get(1);
+        return List.of(
+                new SearchPoint(startLon, startLat),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.25),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.50),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.75),
+                new SearchPoint(goalLon, goalLat)
+        );
+    }
+
+    private SearchPoint interpolateSearchPoint(double startLon, double startLat, double goalLon, double goalLat, double ratio) {
+        return new SearchPoint(
+                startLon + (goalLon - startLon) * ratio,
+                startLat + (goalLat - startLat) * ratio
+        );
+    }
+
+    private String routeWaypointSearchRadius(List<Double> start, List<Double> goal) {
+        double distanceKm = haversine(start.get(1), start.get(0), goal.get(1), goal.get(0));
+        if (distanceKm < 5.0) {
+            return "1500";
+        }
+        if (distanceKm < 20.0) {
+            return "3000";
+        }
+        if (distanceKm < 50.0) {
+            return "5000";
+        }
+        return "10000";
+    }
+
+    private double routeDetourKm(List<Double> start, List<Double> goal, KakaoSearchResponse.Document document) {
+        double waypointLon = Double.parseDouble(document.getX());
+        double waypointLat = Double.parseDouble(document.getY());
+        double direct = haversine(start.get(1), start.get(0), goal.get(1), goal.get(0));
+        double viaWaypoint = haversine(start.get(1), start.get(0), waypointLat, waypointLon)
+                + haversine(waypointLat, waypointLon, goal.get(1), goal.get(0));
+        return viaWaypoint - direct;
     }
 
     private RouteOptionDto applyDirectiveToOption(RouteOptionDto option, RecommendationDirective directive) {
@@ -1498,6 +1599,9 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private record ResolvedWaypoint(String coordinate, String name) {
+    }
+
+    private record SearchPoint(double lon, double lat) {
     }
 
     private record RecommendationDirective(
