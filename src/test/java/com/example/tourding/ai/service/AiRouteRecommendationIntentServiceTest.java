@@ -63,6 +63,26 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void fallsBackToRuleWhenOpenAiRejectsSimpleWaypointRequest() {
+        AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
+        ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
+        String text = "올리브영 가자";
+        when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
+                AiRouteRecommendationIntentDto.builder()
+                        .waypointNames(java.util.List.of())
+                        .explanation("지원하지 않는 추천 조건입니다.")
+                        .supported(false)
+                        .build()
+        );
+
+        AiRouteRecommendationIntentDto result = aiFirstService.classify(text);
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
+
+    @Test
     void splitsCombinedWaypointNamesFromOpenAi() {
         AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
         ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
@@ -201,6 +221,19 @@ class AiRouteRecommendationIntentServiceTest {
 
         assertThat(result.isSupported()).isTrue();
         assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesCasualVisitExpressionsWithoutOpenAi() {
+        AiRouteRecommendationIntentDto goTogether = service.classify("올리브영 가자");
+        assertThat(goTogether.isSupported()).isTrue();
+        assertThat(goTogether.getWaypointNames()).containsExactly("올리브영");
+
+        AiRouteRecommendationIntentDto wantToStopBy = service.classify("올리브영 들릴래");
+        assertThat(wantToStopBy.isSupported()).isTrue();
+        assertThat(wantToStopBy.getWaypointNames()).containsExactly("올리브영");
+
         verifyNoInteractions(openAiClient);
     }
 

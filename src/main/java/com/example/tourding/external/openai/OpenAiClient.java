@@ -133,7 +133,7 @@ public class OpenAiClient {
                     지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit, route_speed, cycling_profile, surface_preference, waytype_preference다.
                     이외 요청만 있으면 supported=false로 반환한다.
                     waypoint_names는 사용자가 경유하고 싶은 구체적인 장소명 배열이다.
-                    "들러줘", "들려줘", "들렸다가", "들리고 싶어", "들리고싶어요", "들리자", "갔다가", "가자", "찍고", "거쳐서"는 모두 waypoint_add 의도다.
+                    "들러줘", "들려줘", "들렸다가", "들릴래", "들르고 싶어", "들리고 싶어", "들리고싶어요", "들리자", "갔다가", "가자", "찍고", "거쳐서"는 모두 waypoint_add 의도다.
                     waypoint_names에는 카카오 장소 검색에 넣을 최소 장소명/브랜드명만 넣는다.
                     예: "제일 어려운코스로 가는데 옹짬뽕 들렸다가 가줘" -> waypoint_names=["옹짬뽕"].
                     예: "가다가 근처 올리브영도 한번 들러줘" -> waypoint_names=["올리브영"].

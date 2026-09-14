@@ -30,12 +30,10 @@ public class AiRouteRecommendationIntentService {
                     .build();
         }
 
+        AiRouteRecommendationIntentDto aiResult = null;
         if (recommendationAiFirst) {
-            AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
+            aiResult = classifyByAi(text);
             if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
-                return sanitizeResult(aiResult);
-            }
-            if (isExplicitUnsupported(aiResult)) {
                 return sanitizeResult(aiResult);
             }
         }
@@ -52,9 +50,15 @@ public class AiRouteRecommendationIntentService {
             }
         }
 
-        AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
-        if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
+        if (isExplicitUnsupported(aiResult)) {
             return sanitizeResult(aiResult);
+        }
+
+        if (!recommendationAiFirst) {
+            aiResult = classifyByAi(text);
+            if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
+                return sanitizeResult(aiResult);
+            }
         }
 
         return sanitizeResult(classifyByRule(text));
@@ -148,7 +152,7 @@ public class AiRouteRecommendationIntentService {
     private List<String> waypointNames(String text) {
         List<String> result = new ArrayList<>();
         addWaypointMatches(result, text, "경유지\\s*[:：]?\\s*([^,，.。]+)");
-        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들리고\\s*싶어요|들리고\\s*싶어|들리고싶어요|들리고싶어|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|돌아갔다가|돌아가서|돌아서)");
+        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들릴래|들를래|들르고\\s*싶어요|들르고\\s*싶어|들르고싶어요|들르고싶어|들리고\\s*싶어요|들리고\\s*싶어|들리고싶어요|들리고싶어|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|돌아갔다가|돌아가서|돌아서)");
         return result.stream()
                 .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
@@ -386,6 +390,7 @@ public class AiRouteRecommendationIntentService {
 
     private boolean hasWaypointDirective(String text) {
         return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "들렸다", "들려",
+                "들릴래", "들를래", "들르고싶어", "들르고싶어요",
                 "들리고싶어", "들리고싶어요", "들리자", "거쳐", "거치", "찍고", "갔다가", "가자",
                 "돌아갔다", "돌아가서", "돌아서");
     }
