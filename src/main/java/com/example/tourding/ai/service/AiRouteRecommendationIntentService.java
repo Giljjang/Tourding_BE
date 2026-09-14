@@ -83,6 +83,7 @@ public class AiRouteRecommendationIntentService {
                 .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
                 .filter(name -> !isGenericFacilityName(name))
+                .filter(name -> !isRouteConditionName(name))
                 .distinct()
                 .toList();
         result.setWaypointNames(waypointNames);
@@ -157,6 +158,7 @@ public class AiRouteRecommendationIntentService {
                 .flatMap(name -> splitWaypointNames(name).stream())
                 .filter(name -> name.length() >= 2)
                 .filter(name -> !isGenericFacilityName(name))
+                .filter(name -> !isRouteConditionName(name))
                 .distinct()
                 .toList();
     }
@@ -243,7 +245,7 @@ public class AiRouteRecommendationIntentService {
             return 2;
         }
         if (containsAny(text,
-                "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "낮은난이도",
+                "난이도1", "1단계", "쉬운", "쉽게", "초보", "편한", "편하게", "낮은난이도",
                 "오르막피", "오르막없", "오르막적", "업힐피", "업힐없", "업힐적",
                 "경사피", "경사없", "경사적", "언덕피", "언덕없", "언덕적",
                 "평지", "완만", "평탄", "덜힘든", "덜힘들", "힘들지않은", "힘들지않게")) {
@@ -261,7 +263,7 @@ public class AiRouteRecommendationIntentService {
     }
 
     private Boolean fastRoute(String text) {
-        if (containsAny(text, "빠른", "빨리", "최단시간", "시간짧", "효율", "제일빠른", "가장빠른")) {
+        if (containsAny(text, "빠른", "빠르게", "빨리", "최단시간", "시간짧", "효율", "제일빠른", "제일빠르게", "가장빠른", "가장빠르게")) {
             return true;
         }
         if (containsAny(text, "천천히", "여유", "느긋")) {
@@ -427,6 +429,18 @@ public class AiRouteRecommendationIntentService {
     private boolean isGenericFacilityName(String name) {
         String compact = name.replaceAll("\\s+", "");
         return Set.of("카페", "화장실", "편의점", "맛집", "식당", "보급").contains(compact);
+    }
+
+    private boolean isRouteConditionName(String name) {
+        String compact = name.replaceAll("\\s+", "");
+        return Set.of(
+                "빠르게", "빨리", "빠른길", "제일빠르게", "가장빠르게",
+                "편하게", "편한길", "쉬운길", "쉽게", "초보도갈만한길",
+                "어렵게", "어려운길", "힘든길", "상급자코스",
+                "천천히", "여유롭게", "느긋하게",
+                "평지", "평탄하게", "완만하게",
+                "오르막없이", "오르막적게", "업힐없이", "경사없이", "언덕없이"
+        ).contains(compact);
     }
 
     private String unsupportedExplanation(String text, List<String> waypointNames) {

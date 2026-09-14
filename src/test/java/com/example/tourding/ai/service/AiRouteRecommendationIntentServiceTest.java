@@ -351,6 +351,26 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void doesNotTreatRouteConditionAsWaypointForGoWishExpression() {
+        AiRouteRecommendationIntentDto fast = service.classify("빠르게 가고싶어");
+        assertThat(fast.isSupported()).isTrue();
+        assertThat(fast.getFastRoute()).isTrue();
+        assertThat(fast.getWaypointNames()).isEmpty();
+
+        AiRouteRecommendationIntentDto easy = service.classify("편하게 가고싶어");
+        assertThat(easy.isSupported()).isTrue();
+        assertThat(easy.getTargetDifficulty()).isEqualTo(1);
+        assertThat(easy.getWaypointNames()).isEmpty();
+
+        AiRouteRecommendationIntentDto relaxed = service.classify("천천히 가고싶어");
+        assertThat(relaxed.isSupported()).isTrue();
+        assertThat(relaxed.getFastRoute()).isFalse();
+        assertThat(relaxed.getWaypointNames()).isEmpty();
+
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
     void classifiesRoadBikeAndPavedPreferenceWithoutOpenAi() {
         AiRouteRecommendationIntentDto result = service.classify("로드 자전거로 포장도로 위주로 추천해줘");
 
