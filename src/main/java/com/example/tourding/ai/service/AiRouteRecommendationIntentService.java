@@ -38,23 +38,23 @@ public class AiRouteRecommendationIntentService {
         if (recommendationAiFirst && shouldUseAiFirst(text)) {
             AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
             if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
-                return aiResult;
+                return sanitizeResult(aiResult);
             }
         }
 
         if (ruleFirst) {
             AiRouteRecommendationIntentDto ruleResult = classifyByRule(text);
             if (hasAnyCondition(ruleResult) || ruleResult.isSupported() || isExplicitUnsupported(ruleResult)) {
-                return ruleResult;
+                return sanitizeResult(ruleResult);
             }
         }
 
         AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
         if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
-            return aiResult;
+            return sanitizeResult(aiResult);
         }
 
-        return classifyByRule(text);
+        return sanitizeResult(classifyByRule(text));
     }
 
     private AiRouteRecommendationIntentDto classifyByAi(String text) {
@@ -64,6 +64,22 @@ public class AiRouteRecommendationIntentService {
             // OpenAI 장애/키 누락 시에도 추천 기능 자체는 허용된 조건 안에서 계속 동작한다.
             return null;
         }
+    }
+
+    private AiRouteRecommendationIntentDto sanitizeResult(AiRouteRecommendationIntentDto result) {
+        if (result == null) {
+            return null;
+        }
+        List<String> waypointNames = result.getWaypointNames() == null
+                ? List.of()
+                : result.getWaypointNames().stream()
+                .map(this::cleanWaypointName)
+                .filter(name -> name.length() >= 2)
+                .filter(name -> !isGenericFacilityName(name))
+                .distinct()
+                .toList();
+        result.setWaypointNames(waypointNames);
+        return result;
     }
 
     private boolean shouldUseAiFirst(String text) {
@@ -173,7 +189,7 @@ public class AiRouteRecommendationIntentService {
         do {
             previous = cleaned;
             cleaned = cleaned
-                    .replaceAll("^.*(?:피하고|피해서|빼고|제외하고|설정해주고|추천해주고|여유롭게|빠른길로|위주로|코스로|길로)\\s*", "")
+                    .replaceAll("^.*(?:피하고|피해서|빼고|제외하고|설정해주고|추천해주고|여유롭게|빠른길로|위주로|코스로|길로|길류|길을|가는\\s*데|가는는데|가는데|가다가)\\s*", "")
                     .replaceAll("^(가다가|가는\\s*길에|중간에|도중에|오는\\s*길에|가는길에|오는길에|잠깐|한번|좀|근처에|근처|주변에|주변)\\s*", "")
                     .trim();
         } while (!previous.equals(cleaned));

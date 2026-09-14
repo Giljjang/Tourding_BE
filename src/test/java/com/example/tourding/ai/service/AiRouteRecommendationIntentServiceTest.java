@@ -30,7 +30,7 @@ class AiRouteRecommendationIntentServiceTest {
         when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
                 AiRouteRecommendationIntentDto.builder()
                         .targetDifficulty(4)
-                        .waypointNames(java.util.List.of("옹짬뽕"))
+                        .waypointNames(java.util.List.of("제일 어려운코스로 가는데 가다가 옹짬뽕"))
                         .supported(true)
                         .build()
         );
@@ -41,6 +41,16 @@ class AiRouteRecommendationIntentServiceTest {
         assertThat(result.getTargetDifficulty()).isEqualTo(4);
         assertThat(result.getWaypointNames()).containsExactly("옹짬뽕");
         verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
+
+    @Test
+    void cleansSpeechRecognitionNoiseFromWaypointName() {
+        AiRouteRecommendationIntentDto result = service.classify("제일 길고 어려운길류 가는데 옹짬뽕 들렸다가 가줘");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getTargetDifficulty()).isEqualTo(3);
+        assertThat(result.getWaypointNames()).containsExactly("옹짬뽕");
+        verifyNoInteractions(openAiClient);
     }
 
     @Test
