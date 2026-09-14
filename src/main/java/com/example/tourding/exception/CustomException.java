@@ -12,6 +12,11 @@ public class CustomException extends RuntimeException {
         this.code = errorCode;
     }
 
+    public CustomException(ErrorCode errorCode, String message) {
+        super(message);
+        this.code = errorCode;
+    }
+
     @Override
     public synchronized Throwable fillInStackTrace() {
         return this;

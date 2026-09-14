@@ -104,13 +104,14 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private RouteRequestDto toRouteRequestDto(RouteRecommendationReqDto requestDto, RecommendationDirective directive) {
+        String locationName = locationNameForRecommendation(requestDto, directive.wayPointNames());
         return RouteRequestDto.builder()
                 .userId(requestDto.getUserId())
                 .start(requestDto.getStart())
                 .goal(requestDto.getGoal())
                 .wayPoints(mergedWayPoints("", directive.wayPoints()))
-                .locationName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
-                .locateName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
+                .locationName(locationName)
+                .locateName(locationName)
                 .typeCode(typeCodeForRecommendation(directive.wayPointNames()))
                 .isUsed(requestDto.getIsUsed())
                 .userIntentText(requestDto.getUserIntentText())
@@ -924,66 +925,95 @@ public class RouteService implements RouteServiceImpl {
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return List.of();
         }
+        List<Double> start = parseCoordinate(requestDto.getStart());
+        List<Double> goal = parseCoordinate(requestDto.getGoal());
+        Optional<List<Double>> userLocation = userLocation(requestDto);
         List<ResolvedWaypoint> result = new ArrayList<>();
+        List<Double> previousPoint = start;
         for (String name : wayPointNames) {
-            KakaoSearchResponse.Document document = findWaypointNearRoute(requestDto, name)
-                    .orElseGet(() -> findWaypointByName(name));
+            KakaoSearchResponse.Document document = findWaypointNearPoint(previousPoint, name)
+                    .or(() -> findWaypointOnRouteLine(start, goal, name))
+                    .or(() -> userLocation.flatMap(location -> findWaypointNearPoint(location, name)))
+                    .orElse(null);
             if (document == null) {
-                throw new CustomException(ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND);
+                throw waypointNotFound(name);
             }
+            String coordinate = document.getX() + "," + document.getY();
             result.add(new ResolvedWaypoint(
-                    document.getX() + "," + document.getY(),
+                    coordinate,
                     defaultString(document.getPlace_name(), name)
             ));
+            previousPoint = parseCoordinate(coordinate);
         }
         return result;
     }
 
-    private Optional<KakaoSearchResponse.Document> findWaypointNearRoute(RouteRecommendationReqDto requestDto, String name) {
-        List<Double> start = parseCoordinate(requestDto.getStart());
-        List<Double> goal = parseCoordinate(requestDto.getGoal());
+    private CustomException waypointNotFound(String name) {
+        return new CustomException(
+                ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND,
+                "경로상 주변에 경유지 '" + name + "'을(를) 찾을 수 없습니다."
+        );
+    }
+
+    private Optional<KakaoSearchResponse.Document> findWaypointOnRouteLine(List<Double> start, List<Double> goal, String name) {
         String radius = routeWaypointSearchRadius(start, goal);
 
         Map<String, KakaoSearchResponse.Document> candidates = new LinkedHashMap<>();
         for (SearchPoint point : routeSearchPoints(start, goal)) {
-            KakaoSearchResponse response;
-            try {
-                response = kakaoClient.kakaoSearchByLocation(
-                        String.valueOf(point.lon()),
-                        String.valueOf(point.lat()),
-                        radius,
-                        name
-                );
-            } catch (RuntimeException e) {
-                continue;
-            }
-            if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
-                continue;
-            }
-            for (KakaoSearchResponse.Document document : response.getDocuments()) {
-                if (hasCoordinate(document)) {
-                    candidates.putIfAbsent(kakaoDocumentKey(document), document);
-                }
-            }
+            collectWaypointCandidates(candidates, point.lon(), point.lat(), radius, name);
         }
         return candidates.values().stream()
                 .min(Comparator.comparingDouble(document -> routeDetourKm(start, goal, document)));
     }
 
-    private KakaoSearchResponse.Document findWaypointByName(String name) {
+    private Optional<KakaoSearchResponse.Document> findWaypointNearPoint(List<Double> point, String name) {
+        Map<String, KakaoSearchResponse.Document> candidates = new LinkedHashMap<>();
+        collectWaypointCandidates(candidates, point.get(0), point.get(1), "5000", name);
+        if (candidates.isEmpty()) {
+            collectWaypointCandidates(candidates, point.get(0), point.get(1), "10000", name);
+        }
+        return candidates.values().stream()
+                .min(Comparator.comparingDouble(document -> haversine(
+                        point.get(1),
+                        point.get(0),
+                        Double.parseDouble(document.getY()),
+                        Double.parseDouble(document.getX())
+                )));
+    }
+
+    private void collectWaypointCandidates(
+            Map<String, KakaoSearchResponse.Document> candidates,
+            double lon,
+            double lat,
+            String radius,
+            String name
+    ) {
         KakaoSearchResponse response;
         try {
-            response = kakaoClient.kakoSearchByName(name);
+            response = kakaoClient.kakaoSearchByLocation(
+                    String.valueOf(lon),
+                    String.valueOf(lat),
+                    radius,
+                    name
+            );
         } catch (RuntimeException e) {
-            return null;
+            return;
         }
         if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
-            return null;
+            return;
         }
-        return response.getDocuments().stream()
-                .filter(this::hasCoordinate)
-                .findFirst()
-                .orElse(null);
+        for (KakaoSearchResponse.Document document : response.getDocuments()) {
+            if (hasCoordinate(document)) {
+                candidates.putIfAbsent(kakaoDocumentKey(document), document);
+            }
+        }
+    }
+
+    private Optional<List<Double>> userLocation(RouteRecommendationReqDto requestDto) {
+        if (requestDto.getCurrentLon() == null || requestDto.getCurrentLat() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(List.of(requestDto.getCurrentLon(), requestDto.getCurrentLat()));
     }
 
     private boolean hasCoordinate(KakaoSearchResponse.Document document) {
@@ -1008,9 +1038,11 @@ public class RouteService implements RouteServiceImpl {
         double goalLat = goal.get(1);
         return List.of(
                 new SearchPoint(startLon, startLat),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.15),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.25),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.50),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.75),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.85),
                 new SearchPoint(goalLon, goalLat)
         );
     }
@@ -1028,10 +1060,10 @@ public class RouteService implements RouteServiceImpl {
             return "1500";
         }
         if (distanceKm < 20.0) {
-            return "3000";
+            return "5000";
         }
         if (distanceKm < 50.0) {
-            return "5000";
+            return "8000";
         }
         return "10000";
     }
@@ -1104,12 +1136,41 @@ public class RouteService implements RouteServiceImpl {
 
     private String locationNameForRecommendation(RouteRecommendationReqDto requestDto, List<String> wayPointNames) {
         List<String> baseNames = splitCsv(defaultString(requestDto.getLocateName(), requestDto.getLocationName()));
-        String startName = baseNames.isEmpty() ? "출발지" : baseNames.get(0);
-        String goalName = baseNames.size() >= 2 ? baseNames.get(baseNames.size() - 1) : "도착지";
+        String startName = resolveRecommendationEndpointName(
+                baseNames.isEmpty() ? null : baseNames.get(0),
+                requestDto.getStart(),
+                "출발지"
+        );
+        String goalName = resolveRecommendationEndpointName(
+                baseNames.size() >= 2 ? baseNames.get(baseNames.size() - 1) : null,
+                requestDto.getGoal(),
+                "도착지"
+        );
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return startName + "," + goalName;
         }
         return startName + "," + String.join(",", wayPointNames) + "," + goalName;
+    }
+
+    private String resolveRecommendationEndpointName(String requestedName, String coordinate, String defaultLabel) {
+        if (requestedName != null && !requestedName.isBlank() && !requestedName.equals(defaultLabel)) {
+            return requestedName;
+        }
+        return resolveCoordinateAddressName(coordinate, defaultLabel);
+    }
+
+    private String resolveCoordinateAddressName(String coordinate, String fallback) {
+        try {
+            List<Double> parsed = parseCoordinate(coordinate);
+            return kakaoClient.kakaoAddressNameByCoordinate(
+                            String.valueOf(parsed.get(0)),
+                            String.valueOf(parsed.get(1))
+                    )
+                    .filter(name -> !name.isBlank())
+                    .orElse(fallback);
+        } catch (RuntimeException e) {
+            return fallback;
+        }
     }
 
     private String typeCodeForRecommendation(List<String> wayPointNames) {

@@ -30,16 +30,19 @@ public class AiRouteRecommendationIntentService {
                     .build();
         }
 
-        String compactText = text.replaceAll("\\s+", "");
-        if (isFacilitySearch(compactText) && !hasWaypointDirective(compactText)) {
-            return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
-        }
-
-        if (recommendationAiFirst && shouldUseAiFirst(text)) {
+        if (recommendationAiFirst) {
             AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
             if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
                 return sanitizeResult(aiResult);
             }
+            if (isExplicitUnsupported(aiResult)) {
+                return sanitizeResult(aiResult);
+            }
+        }
+
+        String compactText = text.replaceAll("\\s+", "");
+        if (isFacilitySearch(compactText) && !hasWaypointDirective(compactText)) {
+            return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
         }
 
         if (ruleFirst) {
@@ -80,25 +83,6 @@ public class AiRouteRecommendationIntentService {
                 .toList();
         result.setWaypointNames(waypointNames);
         return result;
-    }
-
-    private boolean shouldUseAiFirst(String text) {
-        String compactText = text.replaceAll("\\s+", "");
-        return hasWaypointDirective(compactText)
-                && hasRouteCondition(compactText)
-                && (compactText.length() >= 18
-                || containsAny(compactText, "그리고", "가는데", "가다가", "중간에", "도중에", "설정해주고"));
-    }
-
-    private boolean hasRouteCondition(String text) {
-        return targetDifficulty(text) != null
-                || fastRoute(text) != null
-                || cyclingProfile(text) != null
-                || preferPaved(text) != null
-                || preferBikeRoad(text) != null
-                || avoidMainRoad(text) != null
-                || containsAny(text, "계단", "물길", "하천", "개울", "침수", "도섭", "빙판", "눈길", "얼음", "결빙", "공사", "통제", "폐쇄")
-                || maxDistanceKm(text) != null;
     }
 
     private AiRouteRecommendationIntentDto classifyByRule(String rawText) {
@@ -164,7 +148,7 @@ public class AiRouteRecommendationIntentService {
     private List<String> waypointNames(String text) {
         List<String> result = new ArrayList<>();
         addWaypointMatches(result, text, "경유지\\s*[:：]?\\s*([^,，.。]+)");
-        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|거쳐서|거쳐|거치고|찍고|돌아갔다가|돌아가서|돌아서)");
+        addWaypointMatches(result, text, "([^,，.。]{2,30}?)(?:을|를)?\\s*(?:경유|들렀다가|들렀다|들렸다가|들렸다|들러서|들러|들려서|들려|들리고\\s*싶어요|들리고\\s*싶어|들리고싶어요|들리고싶어|들리자|거쳐서|거쳐|거치고|찍고|갔다가|가자|돌아갔다가|돌아가서|돌아서)");
         return result.stream()
                 .map(this::cleanWaypointName)
                 .filter(name -> name.length() >= 2)
@@ -190,6 +174,7 @@ public class AiRouteRecommendationIntentService {
             previous = cleaned;
             cleaned = cleaned
                     .replaceAll("^.*(?:피하고|피해서|빼고|제외하고|설정해주고|추천해주고|여유롭게|빠른길로|위주로|코스로|길로|길류|길을|가는\\s*데|가는는데|가는데|가다가)\\s*", "")
+                    .replaceAll("^.*(?:에서)\\s*", "")
                     .replaceAll("^(가다가|가는\\s*길에|중간에|도중에|오는\\s*길에|가는길에|오는길에|잠깐|한번|좀|근처에|근처|주변에|주변)\\s*", "")
                     .trim();
         } while (!previous.equals(cleaned));
@@ -386,7 +371,9 @@ public class AiRouteRecommendationIntentService {
     }
 
     private boolean hasWaypointDirective(String text) {
-        return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "들렸다", "들려", "거쳐", "거치", "찍고", "돌아갔다", "돌아가서", "돌아서");
+        return containsAny(text, "경유", "경유지", "들러", "들렀", "들렸", "들렸다", "들려",
+                "들리고싶어", "들리고싶어요", "들리자", "거쳐", "거치", "찍고", "갔다가", "가자",
+                "돌아갔다", "돌아가서", "돌아서");
     }
 
     private boolean isGenericFacilityName(String name) {

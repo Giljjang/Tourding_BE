@@ -44,6 +44,25 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void usesOpenAiFirstForSimpleWaypointRequest() {
+        AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
+        ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
+        String text = "올리브영 들리고싶어요";
+        when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
+                AiRouteRecommendationIntentDto.builder()
+                        .waypointNames(java.util.List.of("올리브영"))
+                        .supported(true)
+                        .build()
+        );
+
+        AiRouteRecommendationIntentDto result = aiFirstService.classify(text);
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
+
+    @Test
     void cleansSpeechRecognitionNoiseFromWaypointName() {
         AiRouteRecommendationIntentDto result = service.classify("제일 길고 어려운길류 가는데 옹짬뽕 들렸다가 가줘");
 
@@ -158,6 +177,15 @@ class AiRouteRecommendationIntentServiceTest {
     }
 
     @Test
+    void classifiesWaypointWishExpressionsWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("올리브영 들리자");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("올리브영");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
     void removesLeadingTravelFillerFromWaypointName() {
         AiRouteRecommendationIntentDto result = service.classify("가다가 올리브영 들렸다가줘");
 
@@ -182,6 +210,15 @@ class AiRouteRecommendationIntentServiceTest {
 
         assertThat(result.isSupported()).isTrue();
         assertThat(result.getWaypointNames()).containsExactly("보문호", "첨성대");
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void classifiesOrderedWaypointNamesWithoutOpenAi() {
+        AiRouteRecommendationIntentDto result = service.classify("칠포해수욕장 갔다가 올리브영 가자");
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getWaypointNames()).containsExactly("칠포해수욕장", "올리브영");
         verifyNoInteractions(openAiClient);
     }
 
