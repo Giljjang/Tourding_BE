@@ -20,6 +20,9 @@ public class AiRouteRecommendationIntentService {
     @Value("${AI_INTENT_RULE_FIRST:${ai.intent.rule-first:true}}")
     private boolean ruleFirst = true;
 
+    @Value("${AI_RECOMMENDATION_INTENT_AI_FIRST:${ai.recommendation.intent.ai-first:true}}")
+    private boolean recommendationAiFirst = true;
+
     public AiRouteRecommendationIntentDto classify(String text) {
         if (text == null || text.isBlank()) {
             return AiRouteRecommendationIntentDto.builder()
@@ -32,6 +35,13 @@ public class AiRouteRecommendationIntentService {
             return unsupported("추천 코스 조건이 아닌 시설 탐색 요청입니다.");
         }
 
+        if (recommendationAiFirst && shouldUseAiFirst(text)) {
+            AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
+            if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
+                return aiResult;
+            }
+        }
+
         if (ruleFirst) {
             AiRouteRecommendationIntentDto ruleResult = classifyByRule(text);
             if (hasAnyCondition(ruleResult) || ruleResult.isSupported() || isExplicitUnsupported(ruleResult)) {
@@ -39,16 +49,40 @@ public class AiRouteRecommendationIntentService {
             }
         }
 
-        try {
-            AiRouteRecommendationIntentDto aiResult = openAiClient.classifyRouteRecommendationIntent(text);
-            if (hasAnyCondition(aiResult) || aiResult.isSupported()) {
-                return aiResult;
-            }
-        } catch (RuntimeException ignored) {
-            // OpenAI 장애/키 누락 시에도 추천 기능 자체는 허용된 조건 안에서 계속 동작한다.
+        AiRouteRecommendationIntentDto aiResult = classifyByAi(text);
+        if (hasAnyCondition(aiResult) || (aiResult != null && aiResult.isSupported())) {
+            return aiResult;
         }
 
         return classifyByRule(text);
+    }
+
+    private AiRouteRecommendationIntentDto classifyByAi(String text) {
+        try {
+            return openAiClient.classifyRouteRecommendationIntent(text);
+        } catch (RuntimeException ignored) {
+            // OpenAI 장애/키 누락 시에도 추천 기능 자체는 허용된 조건 안에서 계속 동작한다.
+            return null;
+        }
+    }
+
+    private boolean shouldUseAiFirst(String text) {
+        String compactText = text.replaceAll("\\s+", "");
+        return hasWaypointDirective(compactText)
+                && hasRouteCondition(compactText)
+                && (compactText.length() >= 18
+                || containsAny(compactText, "그리고", "가는데", "가다가", "중간에", "도중에", "설정해주고"));
+    }
+
+    private boolean hasRouteCondition(String text) {
+        return targetDifficulty(text) != null
+                || fastRoute(text) != null
+                || cyclingProfile(text) != null
+                || preferPaved(text) != null
+                || preferBikeRoad(text) != null
+                || avoidMainRoad(text) != null
+                || containsAny(text, "계단", "물길", "하천", "개울", "침수", "도섭", "빙판", "눈길", "얼음", "결빙", "공사", "통제", "폐쇄")
+                || maxDistanceKm(text) != null;
     }
 
     private AiRouteRecommendationIntentDto classifyByRule(String rawText) {

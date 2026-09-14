@@ -2,16 +2,46 @@ package com.example.tourding.ai.service;
 
 import com.example.tourding.ai.dto.AiRouteRecommendationIntentDto;
 import com.example.tourding.external.openai.OpenAiClient;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AiRouteRecommendationIntentServiceTest {
 
     private final OpenAiClient openAiClient = mock(OpenAiClient.class);
     private final AiRouteRecommendationIntentService service = new AiRouteRecommendationIntentService(openAiClient);
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(service, "recommendationAiFirst", false);
+    }
+
+    @Test
+    void usesOpenAiFirstForComplexRouteConditionWithWaypoint() {
+        AiRouteRecommendationIntentService aiFirstService = new AiRouteRecommendationIntentService(openAiClient);
+        ReflectionTestUtils.setField(aiFirstService, "recommendationAiFirst", true);
+        String text = "제일 어려운코스로 가는데 가다가 옹짬뽕 들렸다가 가줘";
+        when(openAiClient.classifyRouteRecommendationIntent(text)).thenReturn(
+                AiRouteRecommendationIntentDto.builder()
+                        .targetDifficulty(4)
+                        .waypointNames(java.util.List.of("옹짬뽕"))
+                        .supported(true)
+                        .build()
+        );
+
+        AiRouteRecommendationIntentDto result = aiFirstService.classify(text);
+
+        assertThat(result.isSupported()).isTrue();
+        assertThat(result.getTargetDifficulty()).isEqualTo(4);
+        assertThat(result.getWaypointNames()).containsExactly("옹짬뽕");
+        verify(openAiClient).classifyRouteRecommendationIntent(text);
+    }
 
     @Test
     void classifiesMultipleConditionSentencesWithoutOpenAi() {
