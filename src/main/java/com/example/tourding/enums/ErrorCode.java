@@ -21,7 +21,7 @@ public enum ErrorCode{
     AI_ROUTE_CANDIDATE_EMPTY(10, "후보 경로 생성에 실패했습니다.", HttpStatus.BAD_REQUEST),
     ORS_ROUTE_REQUEST_FAILED(11, "ORS 경로 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
     ROUTE_SUMMARY_NOT_FOUND(12, "현재 라이딩 경로가 없습니다.", HttpStatus.NOT_FOUND),
-    AI_RECOMMENDATION_UNSUPPORTED_INTENT(13, "추천 조건을 이해하지 못했어요. 빠른 길, 쉬운 길, 오르막 적은 길, 포장도로나 자전거도로 우선, 특정 장소 경유처럼 다시 입력해 주세요.", HttpStatus.BAD_REQUEST),
+    AI_RECOMMENDATION_UNSUPPORTED_INTENT(13, "빠른 길, 쉬운 길, 오르막 길 /n포장도로나 자전거 도로 우선 /n특정 장소 경유", HttpStatus.BAD_REQUEST),
     AI_RECOMMENDATION_WAYPOINT_NOT_FOUND(14, "경유지 장소를 찾을 수 없습니다.", HttpStatus.BAD_REQUEST),
     AI_RECOMMENDATION_INVALID_DISTANCE_LIMIT(15, "키로수 제한은 0보다 커야 합니다.", HttpStatus.BAD_REQUEST),
     USER_NOT_FOUND(16, "사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
