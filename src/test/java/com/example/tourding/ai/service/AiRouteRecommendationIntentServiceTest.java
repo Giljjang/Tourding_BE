@@ -408,4 +408,35 @@ class AiRouteRecommendationIntentServiceTest {
         assertThat(result.getExplanation()).contains("구체적인 장소명");
         verifyNoInteractions(openAiClient);
     }
+
+    @Test
+    void classifiesOrsPreferenceAndRoadTypesWithoutOpenAi() {
+        AiRouteRecommendationIntentDto shortest = service.classify("최단거리로 도로를 이용해서 가줘");
+        assertThat(shortest.isSupported()).isTrue();
+        assertThat(shortest.getRoutePreference()).isEqualTo("SHORTEST");
+        assertThat(shortest.getRoadPreference()).isEqualTo("ROAD");
+
+        AiRouteRecommendationIntentDto longRoute = service.classify("조금 돌아가도 좋으니 제일 긴 코스로 가줘");
+        assertThat(longRoute.isSupported()).isTrue();
+        assertThat(longRoute.getRouteShape()).isEqualTo("LONGEST");
+
+        AiRouteRecommendationIntentDto unpaved = service.classify("흙길로 가줘");
+        assertThat(unpaved.isSupported()).isTrue();
+        assertThat(unpaved.getRoadPreference()).isEqualTo("UNPAVED");
+
+        AiRouteRecommendationIntentDto paved = service.classify("아스팔트로 가줘");
+        assertThat(paved.isSupported()).isTrue();
+        assertThat(paved.getRoadPreference()).isEqualTo("PAVED");
+
+        verifyNoInteractions(openAiClient);
+    }
+
+    @Test
+    void rejectsCoastalRequestBecauseOrsResponseCannotVerifyCoastline() {
+        AiRouteRecommendationIntentDto result = service.classify("해안가 코스로 가줘");
+
+        assertThat(result.isSupported()).isFalse();
+        assertThat(result.getExplanation()).contains("해안가");
+        verifyNoInteractions(openAiClient);
+    }
 }

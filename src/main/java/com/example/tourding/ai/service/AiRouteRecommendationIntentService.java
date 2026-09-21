@@ -30,6 +30,10 @@ public class AiRouteRecommendationIntentService {
                     .build();
         }
 
+        if (containsAny(text.replaceAll("\\s+", ""), "해안가", "해안도로", "바닷가코스", "바다옆", "바다길")) {
+            return unsupported("해안가 경로는 현재 ORS 응답만으로 경로상 위치를 보장할 수 없습니다.");
+        }
+
         AiRouteRecommendationIntentDto aiResult = null;
         if (recommendationAiFirst) {
             aiResult = classifyByAi(text);
@@ -87,6 +91,9 @@ public class AiRouteRecommendationIntentService {
                 .distinct()
                 .toList();
         result.setWaypointNames(waypointNames);
+        result.setRoutePreference(normalizeRoutePreference(result.getRoutePreference()));
+        result.setRouteShape(normalizeRouteShape(result.getRouteShape()));
+        result.setRoadPreference(normalizeRoadPreference(result.getRoadPreference()));
         return result;
     }
 
@@ -101,12 +108,16 @@ public class AiRouteRecommendationIntentService {
         Boolean avoidConstruction = containsAny(text, "공사", "통제", "폐쇄") ? true : null;
         Boolean avoidSteps = containsAny(text, "계단") ? true : null;
         Boolean avoidFords = containsAny(text, "물길", "하천", "개울", "침수", "도섭") ? true : null;
+        Boolean avoidFerries = containsAny(text, "배타", "배 타", "선박", "페리", "나룻배") ? true : null;
         Boolean avoidIce = containsAny(text, "빙판", "눈길", "얼음", "결빙") ? true : null;
         Boolean fastRoute = fastRoute(text);
+        String routePreference = routePreference(text);
+        String routeShape = routeShape(text);
         String cyclingProfile = cyclingProfile(text);
         Boolean preferPaved = preferPaved(text);
         Boolean preferBikeRoad = preferBikeRoad(text);
         Boolean avoidMainRoad = avoidMainRoad(text);
+        String roadPreference = roadPreference(text, preferPaved, preferBikeRoad, avoidMainRoad);
         Double maxDistanceKm = maxDistanceKm(rawText);
 
         boolean supported = !waypointNames.isEmpty()
@@ -114,12 +125,16 @@ public class AiRouteRecommendationIntentService {
                 || avoidConstruction != null
                 || avoidSteps != null
                 || avoidFords != null
+                || avoidFerries != null
                 || avoidIce != null
                 || fastRoute != null
+                || routePreference != null
+                || routeShape != null
                 || cyclingProfile != null
                 || preferPaved != null
                 || preferBikeRoad != null
                 || avoidMainRoad != null
+                || roadPreference != null
                 || maxDistanceKm != null;
 
         return AiRouteRecommendationIntentDto.builder()
@@ -128,8 +143,12 @@ public class AiRouteRecommendationIntentService {
                 .avoidConstruction(avoidConstruction)
                 .avoidSteps(avoidSteps)
                 .avoidFords(avoidFords)
+                .avoidFerries(avoidFerries)
                 .avoidIce(avoidIce)
                 .fastRoute(fastRoute)
+                .routePreference(routePreference)
+                .routeShape(routeShape)
+                .roadPreference(roadPreference)
                 .cyclingProfile(cyclingProfile)
                 .preferPaved(preferPaved)
                 .preferBikeRoad(preferBikeRoad)
@@ -272,6 +291,87 @@ public class AiRouteRecommendationIntentService {
         return null;
     }
 
+    private String routePreference(String text) {
+        if (containsAny(text, "최단거리", "짧은길", "짧은코스", "거리가짧", "덜돌아", "가까운길")) {
+            return "SHORTEST";
+        }
+        if (containsAny(text, "제일빠른", "가장빠른", "빠른길", "빠르게", "최단시간", "시간짧", "빨리")) {
+            return "FASTEST";
+        }
+        if (containsAny(text, "추천경로", "추천코스", "무난한길", "적당한길", "일반적인길")) {
+            return "RECOMMENDED";
+        }
+        return null;
+    }
+
+    private String routeShape(String text) {
+        if (containsAny(text, "제일긴", "가장긴", "긴코스", "긴길", "최장", "최대한돌아")) {
+            return "LONGEST";
+        }
+        if (containsAny(text, "돌아가", "돌아서", "우회", "경치", "풍경", "여유롭게돌")) {
+            return "DETOUR";
+        }
+        if (containsAny(text, "직선으로", "곧장", "바로가는", "직접가는")) {
+            return "DIRECT";
+        }
+        return null;
+    }
+
+    private String roadPreference(String text, Boolean preferPaved, Boolean preferBikeRoad, Boolean avoidMainRoad) {
+        if (containsAny(text, "조용한길", "한적한길", "차가적은", "차량이적은", "차없는길")) {
+            return "QUIET";
+        }
+        if (Boolean.TRUE.equals(preferBikeRoad)) {
+            return "BIKEWAY";
+        }
+        if (containsAny(text, "흙길", "비포장", "자갈길", "임도", "트랙")) {
+            return "UNPAVED";
+        }
+        if (Boolean.TRUE.equals(preferPaved)) {
+            return "PAVED";
+        }
+        if (containsAny(text, "도로로", "도로를", "도로위주", "도로이용", "차도로", "일반도로", "도로길")) {
+            return "ROAD";
+        }
+        if (Boolean.TRUE.equals(avoidMainRoad)) {
+            return "MAIN_ROAD_AVOID";
+        }
+        return null;
+    }
+
+    private String normalizeRoutePreference(String value) {
+        if (value == null) return null;
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "FAST", "FASTEST" -> "FASTEST";
+            case "SHORT", "SHORTEST" -> "SHORTEST";
+            case "RECOMMENDED", "NORMAL" -> "RECOMMENDED";
+            default -> null;
+        };
+    }
+
+    private String normalizeRouteShape(String value) {
+        if (value == null) return null;
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "LONG", "LONGEST" -> "LONGEST";
+            case "DETOUR", "SCENIC" -> "DETOUR";
+            case "DIRECT" -> "DIRECT";
+            default -> null;
+        };
+    }
+
+    private String normalizeRoadPreference(String value) {
+        if (value == null) return null;
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "PAVED" -> "PAVED";
+            case "BIKEWAY", "BIKE_ROAD", "CYCLEWAY" -> "BIKEWAY";
+            case "UNPAVED", "DIRT", "GRAVEL" -> "UNPAVED";
+            case "ROAD", "ROADWAY" -> "ROAD";
+            case "QUIET" -> "QUIET";
+            case "MAIN_ROAD_AVOID", "AVOID_MAIN_ROAD" -> "MAIN_ROAD_AVOID";
+            default -> null;
+        };
+    }
+
     private String cyclingProfile(String text) {
         if (containsAny(text, "로드", "로드바이크", "싸이클", "사이클")) {
             return "cycling-road";
@@ -385,15 +485,19 @@ public class AiRouteRecommendationIntentService {
                 (result.getWaypointNames() != null && !result.getWaypointNames().isEmpty())
                         || result.getTargetDifficulty() != null
                         || result.getAvoidConstruction() != null
-                        || result.getAvoidSteps() != null
-                        || result.getAvoidFords() != null
-                        || result.getAvoidIce() != null
-                        || result.getFastRoute() != null
-                        || result.getCyclingProfile() != null
-                        || result.getPreferPaved() != null
-                        || result.getPreferBikeRoad() != null
-                        || result.getAvoidMainRoad() != null
-                        || result.getMaxDistanceKm() != null
+                || result.getAvoidSteps() != null
+                || result.getAvoidFords() != null
+                || result.getAvoidFerries() != null
+                || result.getAvoidIce() != null
+                || result.getFastRoute() != null
+                || result.getRoutePreference() != null
+                || result.getRouteShape() != null
+                || result.getCyclingProfile() != null
+                || result.getPreferPaved() != null
+                || result.getPreferBikeRoad() != null
+                || result.getAvoidMainRoad() != null
+                || result.getRoadPreference() != null
+                || result.getMaxDistanceKm() != null
         );
     }
 

@@ -17,8 +17,12 @@ public class AiRouteRecommendationIntentDto {
     private Boolean avoidConstruction;
     private Boolean avoidSteps;
     private Boolean avoidFords;
+    private Boolean avoidFerries;
     private Boolean avoidIce;
     private Boolean fastRoute;
+    private String routePreference;
+    private String routeShape;
+    private String roadPreference;
     private String cyclingProfile;
     private Boolean preferPaved;
     private Boolean preferBikeRoad;

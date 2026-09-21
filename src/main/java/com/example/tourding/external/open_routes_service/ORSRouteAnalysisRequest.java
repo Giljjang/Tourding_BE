@@ -17,6 +17,7 @@ public class ORSRouteAnalysisRequest {
     private Integer steepnessDifficulty;
     private Boolean avoidSteps;
     private Boolean avoidFords;
+    private Boolean avoidFerries;
 
     public Map<String, Object> toRequestBody() {
         String resolvedPreference = preference == null ? "recommended" : preference;
@@ -27,6 +28,9 @@ public class ORSRouteAnalysisRequest {
         }
         if (Boolean.TRUE.equals(avoidFords)) {
             avoidFeatures.add("fords");
+        }
+        if (Boolean.TRUE.equals(avoidFerries)) {
+            avoidFeatures.add("ferries");
         }
 
         return Map.of(

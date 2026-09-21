@@ -56,6 +56,9 @@ public class RouteSummaryHistory {
     @Column(length = 50)
     private String cyclingProfile;
 
+    @Column(length = 20)
+    private String routePreference;
+
     @Column
     private Boolean fastRoute;
 
@@ -64,6 +67,9 @@ public class RouteSummaryHistory {
 
     @Column
     private Boolean avoidFords;
+
+    @Column
+    private Boolean avoidFerries;
 
     @Column(length = 30)
     private String skillLevel;

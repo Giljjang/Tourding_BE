@@ -88,7 +88,11 @@ public class AiRouteAdjustmentService {
                 .build();
         aiRouteRequestRepository.save(aiRequest);
 
-        if ("UNSUPPORTED".equals(intent.getIntent()) || !"RECALCULATE_REMAINING_ROUTE".equals(intent.getRouteAction())) {
+        boolean waypointAction = "SEARCH_FACILITY".equals(intent.getRouteAction())
+                || "ADD_WAYPOINT_CANDIDATE".equals(intent.getRouteAction());
+        if ("UNSUPPORTED".equals(intent.getIntent())
+                || (!"RECALCULATE_REMAINING_ROUTE".equals(intent.getRouteAction()) && !waypointAction)
+                || (waypointAction && (intent.getWaypointQueries() == null || intent.getWaypointQueries().isEmpty()))) {
             aiRequest.setStatus("REJECTED");
             aiRequest.setRejectionReason(intent.getExplanation());
             throw new CustomException(ErrorCode.AI_UNSUPPORTED_REQUEST);
@@ -101,7 +105,9 @@ public class AiRouteAdjustmentService {
                     routeSummary,
                     requestDto.getCurrentLon(),
                     requestDto.getCurrentLat(),
-                    applyIntentOverride(requestDto.getRouteOption(), intent.getIntent())
+                    applyIntentOverride(requestDto.getRouteOption(), intent.getIntent()),
+                    intent.getWaypointQueries(),
+                    intent.getWaypointMode()
             );
             aiRequest.setStatus("SUCCESS");
             aiRequest.setOrsLatencyMs((int) (System.currentTimeMillis() - orsStart));
@@ -123,8 +129,10 @@ public class AiRouteAdjustmentService {
                 : RouteOptionDto.builder()
                 .cyclingProfile(requestOption.getCyclingProfile())
                 .fastRoute(requestOption.getFastRoute())
+                .routePreference(requestOption.getRoutePreference())
                 .avoidSteps(requestOption.getAvoidSteps())
                 .avoidFords(requestOption.getAvoidFords())
+                .avoidFerries(requestOption.getAvoidFerries())
                 .skillLevel(requestOption.getSkillLevel());
 
         if ("LESS_HILLS".equals(intent)) {

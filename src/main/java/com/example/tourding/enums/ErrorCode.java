@@ -17,7 +17,7 @@ public enum ErrorCode{
     APPLE_WITHDRAW_FAILED(6,"애플 access token 요청 실패",HttpStatus.FORBIDDEN),
     DUPLICATE_EMAIL(7,"이미 사용 중인 이메일입니다.", HttpStatus.CONFLICT),
     AI_STT_FAILED(8, "음성을 인식하지 못했습니다. 다시 말씀해주세요.", HttpStatus.BAD_REQUEST),
-    AI_UNSUPPORTED_REQUEST(9, "AI 경로수정은 오르막/경사 회피, 노면 개선, 자전거도로 우선, 빠른길/짧은길, 큰도로 회피 요청만 지원합니다.", HttpStatus.BAD_REQUEST),
+    AI_UNSUPPORTED_REQUEST(9, "AI 경로 조정은 오르막·경사 완화, 포장·비포장 노면, 자전거도로·조용한 길 우선, 빠른·짧은 길, 큰도로 회피를 지원합니다. 화장실·편의점은 현재 위치 주변 경유가 가능하고, 카페·식당은 상호명이나 구체적인 장소명이 필요합니다.", HttpStatus.BAD_REQUEST),
     AI_ROUTE_CANDIDATE_EMPTY(10, "후보 경로 생성에 실패했습니다.", HttpStatus.BAD_REQUEST),
     ORS_ROUTE_REQUEST_FAILED(11, "ORS 경로 호출에 실패했습니다.", HttpStatus.BAD_GATEWAY),
     ROUTE_SUMMARY_NOT_FOUND(12, "현재 라이딩 경로가 없습니다.", HttpStatus.NOT_FOUND),

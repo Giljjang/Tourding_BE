@@ -52,8 +52,10 @@ public class ORSCilent {
                 defaultString(wayPoints),
                 defaultString(resolvedOption.getCyclingProfile()),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getFastRoute())),
+                defaultString(resolvedOption.getRoutePreference()),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidSteps())),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFords())),
+                String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFerries())),
                 defaultString(resolvedOption.getSkillLevel()),
                 String.valueOf(alternativeRoutesEnabled)
         );
@@ -127,7 +129,7 @@ public class ORSCilent {
 
             Map<String, Object> body = new HashMap<>();
             body.put("coordinates", coordinates);
-            body.put("preference", Boolean.TRUE.equals(resolvedOption.getFastRoute()) ? "fastest" : "recommended");
+            body.put("preference", routePreference(resolvedOption));
             body.put("elevation", true);
             body.put("instructions", true);
             body.put("maneuvers", true);
@@ -222,6 +224,9 @@ public class ORSCilent {
         if (Boolean.TRUE.equals(option.getAvoidFords())) {
             avoidFeatures.add("fords");
         }
+        if (Boolean.TRUE.equals(option.getAvoidFerries())) {
+            avoidFeatures.add("ferries");
+        }
 
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("avoid_features", avoidFeatures);
@@ -229,6 +234,18 @@ public class ORSCilent {
                 "weightings", Map.of("steepness_difficulty", steepnessDifficulty(option.getSkillLevel()))
         ));
         return options;
+    }
+
+    private String routePreference(RouteOptionDto option) {
+        String preference = option.getRoutePreference();
+        if (preference == null || preference.isBlank()) {
+            return Boolean.TRUE.equals(option.getFastRoute()) ? "fastest" : "recommended";
+        }
+        return switch (preference.toUpperCase(Locale.ROOT)) {
+            case "SHORTEST" -> "shortest";
+            case "RECOMMENDED" -> "recommended";
+            default -> "fastest";
+        };
     }
 
     private int steepnessDifficulty(String skillLevel) {

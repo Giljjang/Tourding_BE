@@ -84,6 +84,9 @@ public class OpenAiClient {
                     intent는 LESS_HILLS, BETTER_SURFACE, BIKE_FRIENDLY, FASTER_ROUTE, SHORTER_ROUTE, AVOID_ROAD, FIND_FACILITY, ADD_TOUR_SPOT, UNSUPPORTED 중 하나만 사용한다.
                     UNSUPPORTED는 현재 데이터/API로 보장할 수 없는 절대 안전, 운세, 사고 0% 같은 요청에 사용한다.
                     route_action은 RECALCULATE_REMAINING_ROUTE, SEARCH_FACILITY, ADD_WAYPOINT_CANDIDATE, REJECT_WITH_ALTERNATIVE 중 하나다.
+                    FIND_FACILITY 또는 ADD_TOUR_SPOT이면 waypoint_queries에 검색어 배열을 넣고 waypoint_mode는 FACILITY_CATEGORY 또는 PLACE_KEYWORD 중 하나를 넣는다.
+                    화장실·편의점은 구체적인 상호가 없어도 waypoint_queries에 각각 화장실·편의점을 넣어 FACILITY_CATEGORY로 처리한다.
+                    카페·식당·맛집은 상호명이나 구체적인 장소명이 있을 때만 PLACE_KEYWORD로 처리하고, 종류만 있으면 UNSUPPORTED로 처리한다.
                     weight_update는 comfort, flatness, surface, waytype, efficiency의 합이 1.0이 되게 반환한다. 시설검색/관광지추가/거절은 null 가능하다.
                     """;
 
@@ -115,6 +118,8 @@ public class OpenAiClient {
                     .routeAction(result.path("route_action").asText("REJECT_WITH_ALTERNATIVE"))
                     .weightUpdate(parseWeightUpdate(result.path("weight_update")))
                     .explanation(result.path("explanation").asText(""))
+                    .waypointQueries(parseStringList(result.path("waypoint_queries")))
+                    .waypointMode(result.path("waypoint_mode").isTextual() ? result.path("waypoint_mode").asText() : null)
                     .build();
         } catch (Exception e) {
             throw new RuntimeException("OpenAI 의도분류 호출 실패", e);
@@ -130,7 +135,7 @@ public class OpenAiClient {
             String systemPrompt = """
                     너는 자전거 여행 앱 투어딩의 추천 코스 조건 분류기다.
                     반드시 JSON만 반환한다.
-                    지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit, route_speed, cycling_profile, surface_preference, waytype_preference다.
+                    지원 의도는 waypoint_add, difficulty, avoid_segment, distance_limit, route_speed, cycling_profile, surface_preference, waytype_preference, route_shape다.
                     이외 요청만 있으면 supported=false로 반환한다.
                     waypoint_names는 사용자가 경유하고 싶은 구체적인 장소명 배열이다.
                     "들러줘", "들려줘", "들렸다가", "들릴래", "들르고 싶어", "들리고 싶어", "들리고싶어요", "가고 싶어", "가볼래", "들리자", "갔다가", "가자", "찍고", "거쳐서"는 모두 waypoint_add 의도다.
@@ -145,11 +150,15 @@ public class OpenAiClient {
                     카페, 화장실, 편의점, 맛집처럼 시설 종류만 있고 구체적인 장소명이 없으면 supported=false로 반환한다.
                     target_difficulty는 1,2,3,4 중 하나이며 없으면 null이다.
                     avoid_construction, avoid_steps, avoid_fords, avoid_ice는 각각 공사구간, 계단, 물길/도섭, 빙판길 제외 요청 여부다.
+                    avoid_ferries는 배를 타는 구간을 피하라는 요청이면 true다.
                     fast_route는 빠른길/최단시간/효율 우선이면 true, 여유/느긋한 경로면 false, 없으면 null이다.
+                    route_preference는 fastest, shortest, recommended 중 하나다. 제일 빠른/시간이 짧은은 fastest, 최단거리/짧은 길은 shortest, 무난한 추천은 recommended이며 없으면 null이다.
+                    route_shape는 longest, detour, direct 중 하나다. 제일 긴 코스/긴 코스는 longest, 돌아가도/우회/경치 좋은 길은 detour, 직선에 가까운 길은 direct이며 없으면 null이다.
                     cycling_profile은 cycling-regular, cycling-road, cycling-mountain, cycling-electric 중 하나이며 없으면 null이다.
                     prefer_paved는 포장도로/아스팔트/좋은 노면 선호 여부다.
                     prefer_bike_road는 자전거도로/자전거길/산책로/강변길 우선 여부다.
                     avoid_main_road는 큰도로/차도/차 많은 길 회피 여부다.
+                    road_preference는 paved, bikeway, unpaved, road, quiet, main_road_avoid 중 하나이며, 포장도로/자전거도로/흙길/일반도로/조용한 길/큰길 회피 요청을 표현한다. 해안가·바닷가 요청은 supported=false로 반환한다. 없으면 null이다.
                     max_distance_km는 키로수 제한이 있을 때 숫자로 반환한다.
                     weight_update는 comfort, flatness, surface, waytype, efficiency 합이 1.0이 되게 반환한다.
                     """;
@@ -181,8 +190,12 @@ public class OpenAiClient {
                     .avoidConstruction(result.path("avoid_construction").isBoolean() ? result.path("avoid_construction").asBoolean() : null)
                     .avoidSteps(result.path("avoid_steps").isBoolean() ? result.path("avoid_steps").asBoolean() : null)
                     .avoidFords(result.path("avoid_fords").isBoolean() ? result.path("avoid_fords").asBoolean() : null)
+                    .avoidFerries(result.path("avoid_ferries").isBoolean() ? result.path("avoid_ferries").asBoolean() : null)
                     .avoidIce(result.path("avoid_ice").isBoolean() ? result.path("avoid_ice").asBoolean() : null)
                     .fastRoute(result.path("fast_route").isBoolean() ? result.path("fast_route").asBoolean() : null)
+                    .routePreference(result.path("route_preference").isTextual() ? result.path("route_preference").asText() : null)
+                    .routeShape(result.path("route_shape").isTextual() ? result.path("route_shape").asText() : null)
+                    .roadPreference(result.path("road_preference").isTextual() ? result.path("road_preference").asText() : null)
                     .cyclingProfile(result.path("cycling_profile").isTextual() ? result.path("cycling_profile").asText() : null)
                     .preferPaved(result.path("prefer_paved").isBoolean() ? result.path("prefer_paved").asBoolean() : null)
                     .preferBikeRoad(result.path("prefer_bike_road").isBoolean() ? result.path("prefer_bike_road").asBoolean() : null)
