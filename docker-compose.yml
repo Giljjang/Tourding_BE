@@ -11,11 +11,19 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+  redis:
+    image: redis:7-alpine
+    container_name: tourding-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --port ${REDIS_PORT:-6379}
+    volumes:
+      - redis_data:/data
   app:
     build: .
     container_name: tourding-app
     depends_on:
       - mysql
+      - redis
     ports:
       - "127.0.0.1:8080:8080"
     env_file:
@@ -34,6 +42,21 @@ services:
       - TOUR_CLIENT_SERVICEKEY=${TOUR_CLIENT_SERVICEKEY}
       - SWAGGER_SERVER_URL=${SWAGGER_SERVER_URL}
       - KAKAO_CLIENT_KAKAOAK=${KAKAO_CLIENT_KAKAOAK}
+      - OPEN_ROUTE_SERVICE_KEY=${OPEN_ROUTE_SERVICE_KEY}
+      - OPEN_ROUTE_SERVICE_BASE_URL=${OPEN_ROUTE_SERVICE_BASE_URL:-https://api.heigit.org/openrouteservice}
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - OPEN_ROUTE_SERVICE_CACHE_TTL_MINUTES=${OPEN_ROUTE_SERVICE_CACHE_TTL_MINUTES:-10}
+      - OPEN_AI_SECRET_KEY=${OPEN_AI_SECRET_KEY}
+      - OPENAI_STT_MODEL=${OPENAI_STT_MODEL:-gpt-4o-mini-transcribe}
+      - OPENAI_INTENT_MODEL=${OPENAI_INTENT_MODEL:-gpt-5-mini}
+      - AI_INTENT_RULE_FIRST=${AI_INTENT_RULE_FIRST:-true}
+      - AI_RECOMMENDATION_INTENT_AI_FIRST=${AI_RECOMMENDATION_INTENT_AI_FIRST:-true}
+      - AI_AUDIO_MAX_SECONDS=${AI_AUDIO_MAX_SECONDS:-8}
+      - AI_REQUEST_TIMEOUT_MS=${AI_REQUEST_TIMEOUT_MS:-15000}
+      - AI_CANDIDATE_COUNT=${AI_CANDIDATE_COUNT:-3}
+      - OPEN_WEATHER_MAP_KEY=${OPEN_WEATHER_MAP_KEY}
       - APPLE_KEY_ID=${APPLE_KEY_ID}
       - APPLE_ISS=${APPLE_ISS}
       - APPLE_BUNDLE_ID=${APPLE_BUNDLE_ID}
@@ -41,3 +64,4 @@ services:
     restart: unless-stopped
 volumes:
   mysql_data:
+  redis_data:

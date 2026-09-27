@@ -14,4 +14,6 @@ public class RouteByNameReqDto {
     private Long userId;
     private String start;
     private String goal;
+    private Boolean isUsed;
+    private RouteOptionDto routeOption;
 }

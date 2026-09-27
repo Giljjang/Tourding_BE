@@ -1,0 +1,22 @@
+package com.example.tourding.direction.dto;
+
+import lombok.*;
+
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class RouteRecommendationReqDto {
+    private Long userId;
+    private String start;
+    private String goal;
+    private String locationName;
+    private String locateName;
+    private Boolean isUsed;
+    private String userIntentText;
+    private Double maxDistanceKm;
+    private Double currentLon;
+    private Double currentLat;
+    private RouteOptionDto routeOption;
+}

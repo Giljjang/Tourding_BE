@@ -6,7 +6,9 @@ import com.example.tourding.external.tourAPI.SearchAreaResponse;
 import com.example.tourding.external.tourAPI.TourAPIClient;
 import com.example.tourding.tourApi.dto.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collections;
 import java.util.List;
@@ -82,23 +84,24 @@ public class TourApiService {
     }
 
     public DetailInfoRespDto searchDetailInfo(DetailInfoReqDto detailInfoReqDto) {
+        validateDetailRequest(detailInfoReqDto);
+
         String contentId = detailInfoReqDto.getContentid();
         String contentTypeId = detailInfoReqDto.getContenttypeid();
 
         DetailCommonResponse detailCommonResponse = tourAPIClient.searchDetailCommon(contentId);
         DetailIntroResponse detailIntroResponse = tourAPIClient.searchDetailIntro(contentId, contentTypeId);
 
-        List<DetailCommonResponse.Item> common = detailCommonResponse.getResponse().getBody().getItems().getItem();
+        List<DetailCommonResponse.Item> common = commonItems(detailCommonResponse);
         DetailCommonResponse.Item commonItem = common.isEmpty() ? null : common.get(0);
+        if (commonItem == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "관광지 공통정보를 찾을 수 없습니다.");
+        }
 
-        List<DetailIntroResponse.Item> intro = detailIntroResponse.getResponse().getBody().getItems().getItem();
-        DetailIntroResponse.Item introItem = common.isEmpty() ? null : intro.get(0);
+        List<DetailIntroResponse.Item> intro = introItems(detailIntroResponse);
+        DetailIntroResponse.Item introItem = intro.isEmpty() ? null : intro.get(0);
 
-        String zipCode = commonItem.getZipcode() != null ? " (" + commonItem.getZipcode() + ")" : "";
-        String address = commonItem.getAddr1() + commonItem.getAddr2() + zipCode;
-
-        return DetailInfoRespDto.builder()
-                // ===== 공통 필드 =====
+        DetailInfoRespDto.DetailInfoRespDtoBuilder builder = DetailInfoRespDto.builder()
                 .contentid(commonItem.getContentid())
                 .typeCode(commonItem.getCat1())
                 .contenttypeid(commonItem.getContenttypeid())
@@ -107,11 +110,17 @@ public class TourApiService {
                 .telname(commonItem.getTelname())
                 .firstimage(commonItem.getFirstimage())
                 .firstimage2(commonItem.getFirstimage2())
-                .address(address)
+                .address(address(commonItem))
                 .overview(commonItem.getOverview())
                 .title(commonItem.getTitle())
                 .lat(commonItem.getMapy())
-                .lon(commonItem.getMapx())
+                .lon(commonItem.getMapx());
+
+        if (introItem == null) {
+            return builder.build();
+        }
+
+        return builder
                 // ===== 12 (관광지) =====
                 .packing(introItem.getPacking())
                 .useseason(introItem.getUseseason())
@@ -213,6 +222,41 @@ public class TourApiService {
                                 .build()
                 )
                 .build();
+    }
+
+    private void validateDetailRequest(DetailInfoReqDto detailInfoReqDto) {
+        if (detailInfoReqDto == null
+                || isBlank(detailInfoReqDto.getContentid())
+                || isBlank(detailInfoReqDto.getContenttypeid())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "contentid와 contenttypeid는 필수입니다.");
+        }
+    }
+
+    private List<DetailCommonResponse.Item> commonItems(DetailCommonResponse response) {
+        if (response == null || response.getResponse() == null || response.getResponse().getBody() == null) {
+            return Collections.emptyList();
+        }
+        return response.getResponse().getBody().getItemList();
+    }
+
+    private List<DetailIntroResponse.Item> introItems(DetailIntroResponse response) {
+        if (response == null || response.getResponse() == null || response.getResponse().getBody() == null) {
+            return Collections.emptyList();
+        }
+        return response.getResponse().getBody().getItemList();
+    }
+
+    private String address(DetailCommonResponse.Item commonItem) {
+        String zipCode = isBlank(commonItem.getZipcode()) ? "" : " (" + commonItem.getZipcode() + ")";
+        return defaultString(commonItem.getAddr1()) + defaultString(commonItem.getAddr2()) + zipCode;
+    }
+
+    private String defaultString(String value) {
+        return value == null ? "" : value;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 }
