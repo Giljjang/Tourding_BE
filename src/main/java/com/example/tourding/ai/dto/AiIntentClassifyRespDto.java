@@ -2,6 +2,7 @@ package com.example.tourding.ai.dto;
 
 import lombok.*;
 
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -15,4 +16,6 @@ public class AiIntentClassifyRespDto {
     private String routeAction;
     private Map<String, Double> weightUpdate;
     private String explanation;
+    private List<String> waypointQueries;
+    private String waypointMode;
 }

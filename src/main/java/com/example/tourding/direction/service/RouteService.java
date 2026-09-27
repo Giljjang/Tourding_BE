@@ -25,6 +25,7 @@ import com.example.tourding.user.entity.UserRidingProfile;
 import com.example.tourding.user.repository.UserRepository;
 import com.example.tourding.user.repository.UserRidingProfileRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -90,7 +91,7 @@ public class RouteService implements RouteServiceImpl {
                 .flatMap(Collection::stream)
                 .collect(Collectors.toList());
 
-        List<RouteBuildResult> results = selectRecommendationResults(candidates);
+        List<RouteBuildResult> results = selectRecommendationResults(candidates, directive);
         results.sort(Comparator.<RouteBuildResult>comparingDouble(result -> result.response().getPreferenceScore()).reversed());
         if (!results.isEmpty()) {
             RouteBuildResult best = results.get(0);
@@ -104,13 +105,14 @@ public class RouteService implements RouteServiceImpl {
     }
 
     private RouteRequestDto toRouteRequestDto(RouteRecommendationReqDto requestDto, RecommendationDirective directive) {
+        String locationName = locationNameForRecommendation(requestDto, directive.wayPointNames());
         return RouteRequestDto.builder()
                 .userId(requestDto.getUserId())
                 .start(requestDto.getStart())
                 .goal(requestDto.getGoal())
                 .wayPoints(mergedWayPoints("", directive.wayPoints()))
-                .locationName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
-                .locateName(locationNameForRecommendation(requestDto, directive.wayPointNames()))
+                .locationName(locationName)
+                .locateName(locationName)
                 .typeCode(typeCodeForRecommendation(directive.wayPointNames()))
                 .isUsed(requestDto.getIsUsed())
                 .userIntentText(requestDto.getUserIntentText())
@@ -127,28 +129,65 @@ public class RouteService implements RouteServiceImpl {
             Double currentLat,
             RouteOptionDto overrideOption
     ) {
-        RouteRequestDto previousRouteRequestDto = currentLocationRouteRequest(
+        return rebuildRouteFromCurrentLocation(
                 userId,
                 routeSummary,
                 currentLon,
                 currentLat,
-                routeOptionFromSummary(routeSummary)
+                overrideOption,
+                List.of(),
+                null
+        );
+    }
+
+    @Transactional
+    public RouteGuideRespDto rebuildRouteFromCurrentLocation(
+            Long userId,
+            RouteSummary routeSummary,
+            Double currentLon,
+            Double currentLat,
+            RouteOptionDto overrideOption,
+            List<String> waypointQueries,
+            String waypointMode
+    ) {
+        RouteRebuildPlan previousPlan = currentLocationRoutePlan(
+                userId,
+                routeSummary,
+                currentLon,
+                currentLat,
+                routeOptionFromSummary(routeSummary),
+                List.of()
         );
         RouteBuildResult previousRoute = buildRouteResponse(
-                previousRouteRequestDto,
-                previousRouteRequestDto.getRouteOption(),
+                previousPlan.requestDto(),
+                previousPlan.requestDto().getRouteOption(),
                 routeSummary.getPreferenceScore(),
                 true
         );
 
         RouteOptionDto option = resolveRouteOption(userId, overrideOption);
-        RouteRequestDto requestDto = currentLocationRouteRequest(userId, routeSummary, currentLon, currentLat, option);
+        List<ResolvedWaypoint> addedWaypoints = resolveAdjustmentWaypoints(
+                currentLon,
+                currentLat,
+                waypointQueries
+        );
+        RouteRebuildPlan plan = currentLocationRoutePlan(
+                userId,
+                routeSummary,
+                currentLon,
+                currentLat,
+                option,
+                addedWaypoints
+        );
 
-        RouteRecommendationsRespDto recommendations = getRouteRecommendations(requestDto);
+        RouteRecommendationsRespDto recommendations = getRouteRecommendations(plan.requestDto());
         if (recommendations.getRoutes() == null || recommendations.getRoutes().isEmpty()) {
             throw new IllegalStateException("후보 경로 생성에 실패했습니다.");
         }
         RouteGuideRespDto adjustedRoute = recommendations.getRoutes().get(0);
+        adjustedRoute.setPaths(mergeRoutePaths(plan.routePrefix(), adjustedRoute.getPaths()));
+        adjustedRoute.setLocations(plan.fullLocations());
+        persistPreviewGeometry(adjustedRoute);
         adjustedRoute.setAdjustmentComparison(adjustmentComparison(previousRoute.response(), adjustedRoute));
         return adjustedRoute;
     }
@@ -493,9 +532,11 @@ public class RouteService implements RouteServiceImpl {
         summary.setContentTypeId(defaultString(requestDto.getContentTypeId(), ""));
         summary.setIsUsed(isUsed);
         summary.setCyclingProfile(option.getCyclingProfile());
+        summary.setRoutePreference(option.getRoutePreference());
         summary.setFastRoute(option.getFastRoute());
         summary.setAvoidSteps(option.getAvoidSteps());
         summary.setAvoidFords(option.getAvoidFords());
+        summary.setAvoidFerries(option.getAvoidFerries());
         summary.setSkillLevel(option.getSkillLevel());
         summary.setPreferenceScore(result.response().getPreferenceScore());
         summary.setExtraInfoJson(toJson(result.response().getExtraInfo()));
@@ -518,9 +559,11 @@ public class RouteService implements RouteServiceImpl {
                 .locateName(summary.getLocateName())
                 .isUsed(summary.getIsUsed())
                 .cyclingProfile(summary.getCyclingProfile())
+                .routePreference(summary.getRoutePreference())
                 .fastRoute(summary.getFastRoute())
                 .avoidSteps(summary.getAvoidSteps())
                 .avoidFords(summary.getAvoidFords())
+                .avoidFerries(summary.getAvoidFerries())
                 .skillLevel(summary.getSkillLevel())
                 .preferenceScore(summary.getPreferenceScore())
                 .extraInfoJson(summary.getExtraInfoJson())
@@ -539,9 +582,11 @@ public class RouteService implements RouteServiceImpl {
         summary.setLocateName(defaultString(history.getLocateName(), "출발지,도착지"));
         summary.setIsUsed(defaultBoolean(history.getIsUsed(), true));
         summary.setCyclingProfile(history.getCyclingProfile());
+        summary.setRoutePreference(history.getRoutePreference());
         summary.setFastRoute(history.getFastRoute());
         summary.setAvoidSteps(history.getAvoidSteps());
         summary.setAvoidFords(history.getAvoidFords());
+        summary.setAvoidFerries(history.getAvoidFerries());
         summary.setSkillLevel(history.getSkillLevel());
         summary.setPreferenceScore(history.getPreferenceScore());
         summary.setExtraInfoJson(history.getExtraInfoJson());
@@ -559,9 +604,11 @@ public class RouteService implements RouteServiceImpl {
         target.setLocateName(defaultString(source.getLocateName(), "출발지,도착지"));
         target.setIsUsed(isUsed);
         target.setCyclingProfile(source.getCyclingProfile());
+        target.setRoutePreference(source.getRoutePreference());
         target.setFastRoute(source.getFastRoute());
         target.setAvoidSteps(source.getAvoidSteps());
         target.setAvoidFords(source.getAvoidFords());
+        target.setAvoidFerries(source.getAvoidFerries());
         target.setSkillLevel(source.getSkillLevel());
         target.setPreferenceScore(source.getPreferenceScore());
         target.setExtraInfoJson(source.getExtraInfoJson());
@@ -599,7 +646,10 @@ public class RouteService implements RouteServiceImpl {
         return result;
     }
 
-    private List<RouteBuildResult> selectRecommendationResults(List<RouteBuildResult> candidates) {
+    private List<RouteBuildResult> selectRecommendationResults(
+            List<RouteBuildResult> candidates,
+            RecommendationDirective directive
+    ) {
         if (candidates == null || candidates.isEmpty()) {
             throw new CustomException(ErrorCode.AI_ROUTE_CANDIDATE_EMPTY);
         }
@@ -607,6 +657,7 @@ public class RouteService implements RouteServiceImpl {
         List<RouteBuildResult> pool = candidates.stream()
                 .filter(result -> result != null && result.response() != null)
                 .collect(Collectors.toCollection(ArrayList::new));
+        applyIntentRankingScore(pool, directive);
         pool.sort(Comparator.<RouteBuildResult>comparingDouble(result -> result.response().getPreferenceScore()).reversed());
 
         List<RouteBuildResult> selected = new ArrayList<>();
@@ -624,6 +675,87 @@ public class RouteService implements RouteServiceImpl {
             index++;
         }
         return selected;
+    }
+
+    private void applyIntentRankingScore(List<RouteBuildResult> candidates, RecommendationDirective directive) {
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        double minDistance = candidates.stream()
+                .mapToDouble(result -> defaultDouble(result.response().getDistance(), 0.0))
+                .min()
+                .orElse(0.0);
+        double maxDistance = candidates.stream()
+                .mapToDouble(result -> defaultDouble(result.response().getDistance(), 0.0))
+                .max()
+                .orElse(0.0);
+        double minDuration = candidates.stream()
+                .mapToDouble(result -> defaultDouble(result.response().getDuration(), 0.0))
+                .min()
+                .orElse(0.0);
+        double maxDuration = candidates.stream()
+                .mapToDouble(result -> defaultDouble(result.response().getDuration(), 0.0))
+                .max()
+                .orElse(0.0);
+        double minDetour = candidates.stream()
+                .mapToDouble(this::detourFactor)
+                .min()
+                .orElse(0.0);
+        double maxDetour = candidates.stream()
+                .mapToDouble(this::detourFactor)
+                .max()
+                .orElse(0.0);
+
+        for (RouteBuildResult candidate : candidates) {
+            double base = defaultDouble(candidate.response().getPreferenceScore(), 0.0);
+            double intentScore = 0.0;
+            int intentCount = 0;
+
+            if ("FASTEST".equals(directive.routePreference())) {
+                intentScore += normalizedInverse(candidate.response().getDuration(), minDuration, maxDuration);
+                intentCount++;
+            } else if ("SHORTEST".equals(directive.routePreference())) {
+                intentScore += normalizedInverse(candidate.response().getDistance(), minDistance, maxDistance);
+                intentCount++;
+            }
+
+            if ("LONGEST".equals(directive.routeShape())) {
+                intentScore += normalized(candidate.response().getDistance(), minDistance, maxDistance);
+                intentCount++;
+            } else if ("DETOUR".equals(directive.routeShape())) {
+                intentScore += normalized(detourFactor(candidate), minDetour, maxDetour);
+                intentCount++;
+            } else if ("DIRECT".equals(directive.routeShape())) {
+                intentScore += normalizedInverse(detourFactor(candidate), minDetour, maxDetour);
+                intentCount++;
+            }
+
+            double finalScore = intentCount == 0
+                    ? base
+                    : (base * 0.65) + ((intentScore / intentCount) * 0.35);
+            candidate.response().setPreferenceScore(round4(Math.max(0.0, Math.min(1.0, finalScore))));
+        }
+    }
+
+    private double detourFactor(RouteBuildResult result) {
+        if (result.analysisRoute() == null || result.analysisRoute().getSegments() == null) {
+            return 0.0;
+        }
+        return result.analysisRoute().getSegments().stream()
+                .mapToDouble(segment -> segment.getDetourfactor() * (segment.getPercentage() / 100.0))
+                .sum();
+    }
+
+    private double normalized(double value, double min, double max) {
+        if (max <= min) {
+            return 0.5;
+        }
+        return Math.max(0.0, Math.min(1.0, (value - min) / (max - min)));
+    }
+
+    private double normalizedInverse(double value, double min, double max) {
+        return 1.0 - normalized(value, min, max);
     }
 
     private double diversityAdjustedScore(RouteBuildResult candidate, List<RouteBuildResult> selected) {
@@ -821,25 +953,312 @@ public class RouteService implements RouteServiceImpl {
                 .build();
     }
 
-    private RouteRequestDto currentLocationRouteRequest(
+    private RouteRebuildPlan currentLocationRoutePlan(
             Long userId,
             RouteSummary routeSummary,
             Double currentLon,
             Double currentLat,
-            RouteOptionDto option
+            RouteOptionDto option,
+            List<ResolvedWaypoint> addedWaypoints
     ) {
-        return RouteRequestDto.builder()
+        List<RoutePathRespDto> savedPaths = parseSavedRoutePaths(routeSummary.getRouteGeometryJson());
+        int currentPathIndex = nearestPathIndex(savedPaths, currentLon, currentLat);
+        List<WaypointEntry> existingWaypoints = waypointEntries(routeSummary, savedPaths);
+        List<WaypointEntry> remainingWaypoints = existingWaypoints.stream()
+                .filter(waypoint -> waypoint.pathIndex() < 0 || waypoint.pathIndex() > currentPathIndex)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        List<WaypointEntry> requestedWaypoints = new ArrayList<>();
+        for (ResolvedWaypoint added : addedWaypoints == null ? List.<ResolvedWaypoint>of() : addedWaypoints) {
+            requestedWaypoints.add(new WaypointEntry(
+                    added.coordinate(),
+                    added.name(),
+                    "경유지",
+                    "",
+                    "",
+                    -1
+            ));
+        }
+        requestedWaypoints.addAll(remainingWaypoints);
+
+        String wayPoints = requestedWaypoints.stream()
+                .map(WaypointEntry::coordinate)
+                .collect(Collectors.joining("|"));
+        List<String> locationNames = new ArrayList<>();
+        locationNames.add("현재 위치");
+        locationNames.addAll(requestedWaypoints.stream().map(WaypointEntry::name).toList());
+        locationNames.add(lastLocationName(routeSummary.getLocateName()));
+
+        List<String> typeCodes = new ArrayList<>();
+        typeCodes.add("출발지");
+        typeCodes.addAll(requestedWaypoints.stream().map(WaypointEntry::typeCode).toList());
+        typeCodes.add("도착지");
+
+        List<String> contentIds = requestedWaypoints.stream().map(WaypointEntry::contentId).toList();
+        List<String> contentTypeIds = requestedWaypoints.stream().map(WaypointEntry::contentTypeId).toList();
+
+        RouteRequestDto requestDto = RouteRequestDto.builder()
                 .userId(userId)
                 .start(currentLon + "," + currentLat)
                 .goal(routeSummary.getGoal())
-                .wayPoints(routeSummary.getWayPoints())
-                .locateName(rebuildLocateName(routeSummary.getLocateName()))
-                .typeCode(rebuildTypeCode(routeSummary.getTypeCode()))
-                .contentId(routeSummary.getContentId())
-                .contentTypeId(routeSummary.getContentTypeId())
+                .wayPoints(wayPoints)
+                .locateName(String.join(",", locationNames))
+                .typeCode(String.join(",", typeCodes))
+                .contentId(String.join(",", contentIds))
+                .contentTypeId(String.join(",", contentTypeIds))
                 .isUsed(false)
                 .routeOption(option)
                 .build();
+
+        List<RouteLocationNameRespDto> fullLocations = fullRebuildLocations(
+                routeSummary,
+                currentLon,
+                currentLat,
+                currentPathIndex,
+                existingWaypoints,
+                requestedWaypoints
+        );
+        List<RoutePathRespDto> routePrefix = currentPathIndex < 0 || savedPaths.isEmpty()
+                ? List.of()
+                : new ArrayList<>(savedPaths.subList(0, Math.min(currentPathIndex + 1, savedPaths.size())));
+        return new RouteRebuildPlan(requestDto, routePrefix, fullLocations);
+    }
+
+    private List<ResolvedWaypoint> resolveAdjustmentWaypoints(
+            Double currentLon,
+            Double currentLat,
+            List<String> waypointQueries
+    ) {
+        if (currentLon == null || currentLat == null || waypointQueries == null || waypointQueries.isEmpty()) {
+            return List.of();
+        }
+
+        List<ResolvedWaypoint> resolved = new ArrayList<>();
+        List<Double> previousPoint = List.of(currentLon, currentLat);
+        for (String query : waypointQueries) {
+            if (query == null || query.isBlank()) {
+                continue;
+            }
+            KakaoSearchResponse.Document document = findWaypointNearPoint(previousPoint, query).orElse(null);
+            if (document == null) {
+                throw new CustomException(
+                        ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND,
+                        "현재 위치 주변에서 경유지 '" + query + "'을(를) 찾을 수 없습니다."
+                );
+            }
+            String coordinate = document.getX() + "," + document.getY();
+            resolved.add(new ResolvedWaypoint(coordinate, defaultString(document.getPlace_name(), query)));
+            previousPoint = parseCoordinate(coordinate);
+        }
+        return resolved;
+    }
+
+    private List<WaypointEntry> waypointEntries(RouteSummary routeSummary, List<RoutePathRespDto> savedPaths) {
+        List<String> coordinates = routeSummary.getWayPoints() == null || routeSummary.getWayPoints().isBlank()
+                ? List.of()
+                : Arrays.stream(routeSummary.getWayPoints().split("\\|"))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .toList();
+        List<String> names = splitCsv(routeSummary.getLocateName());
+        List<String> typeCodes = splitCsv(routeSummary.getTypeCode());
+        List<String> contentIds = splitCsv(routeSummary.getContentId());
+        List<String> contentTypeIds = splitCsv(routeSummary.getContentTypeId());
+
+        List<WaypointEntry> result = new ArrayList<>();
+        for (int i = 0; i < coordinates.size(); i++) {
+            String coordinate = coordinates.get(i);
+            int pathIndex = -1;
+            try {
+                List<Double> parsed = parseCoordinate(coordinate);
+                pathIndex = nearestPathIndex(savedPaths, parsed.get(0), parsed.get(1));
+            } catch (RuntimeException ignored) {
+                // Keep malformed legacy data in the remaining request.
+            }
+            result.add(new WaypointEntry(
+                    coordinate,
+                    safeGet(names, i + 1, "경유지"),
+                    safeGet(typeCodes, i + 1, "경유지"),
+                    safeGet(contentIds, i, ""),
+                    safeGet(contentTypeIds, i, ""),
+                    pathIndex
+            ));
+        }
+        return result;
+    }
+
+    private List<RoutePathRespDto> parseSavedRoutePaths(String routeGeometryJson) {
+        if (routeGeometryJson == null || routeGeometryJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(routeGeometryJson, new TypeReference<List<RoutePathRespDto>>() {
+            });
+        } catch (JsonProcessingException | RuntimeException e) {
+            return List.of();
+        }
+    }
+
+    private int nearestPathIndex(List<RoutePathRespDto> paths, Double lon, Double lat) {
+        if (paths == null || paths.isEmpty() || lon == null || lat == null) {
+            return -1;
+        }
+        double minDistance = Double.MAX_VALUE;
+        int nearestIndex = -1;
+        for (int i = 0; i < paths.size(); i++) {
+            RoutePathRespDto path = paths.get(i);
+            try {
+                double pathLon = Double.parseDouble(path.getLon());
+                double pathLat = Double.parseDouble(path.getLat());
+                double distance = haversine(lat, lon, pathLat, pathLon);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestIndex = i;
+                }
+            } catch (RuntimeException ignored) {
+                // Skip malformed geometry points.
+            }
+        }
+        return nearestIndex;
+    }
+
+    private List<RoutePathRespDto> mergeRoutePaths(
+            List<RoutePathRespDto> routePrefix,
+            List<RoutePathRespDto> remainingPaths
+    ) {
+        List<RoutePathRespDto> merged = new ArrayList<>();
+        if (routePrefix != null) {
+            merged.addAll(routePrefix);
+        }
+        if (remainingPaths != null) {
+            for (RoutePathRespDto path : remainingPaths) {
+                if (!merged.isEmpty() && sameCoordinate(merged.get(merged.size() - 1), path)) {
+                    continue;
+                }
+                merged.add(path);
+            }
+        }
+        for (int i = 0; i < merged.size(); i++) {
+            merged.get(i).setSequenceNum(i);
+        }
+        return merged;
+    }
+
+    private boolean sameCoordinate(RoutePathRespDto left, RoutePathRespDto right) {
+        try {
+            return haversine(
+                    Double.parseDouble(left.getLat()),
+                    Double.parseDouble(left.getLon()),
+                    Double.parseDouble(right.getLat()),
+                    Double.parseDouble(right.getLon())
+            ) < 0.005;
+        } catch (RuntimeException e) {
+            return Objects.equals(left.getLon(), right.getLon())
+                    && Objects.equals(left.getLat(), right.getLat());
+        }
+    }
+
+    private void persistPreviewGeometry(RouteGuideRespDto response) {
+        if (response.getRouteSummaryId() == null || response.getPaths() == null) {
+            return;
+        }
+        routeSummaryRepository.findById(response.getRouteSummaryId()).ifPresent(summary -> {
+            summary.setRouteGeometryJson(toJson(response.getPaths()));
+            routeSummaryRepository.save(summary);
+        });
+    }
+
+    private List<RouteLocationNameRespDto> fullRebuildLocations(
+            RouteSummary routeSummary,
+            Double currentLon,
+            Double currentLat,
+            int currentPathIndex,
+            List<WaypointEntry> existingWaypoints,
+            List<WaypointEntry> requestedWaypoints
+    ) {
+        List<RouteLocationNameRespDto> locations = new ArrayList<>();
+        List<String> oldNames = splitCsv(routeSummary.getLocateName());
+        locations.add(RouteLocationNameRespDto.builder()
+                .name(safeGet(oldNames, 0, "출발지"))
+                .type("Start")
+                .typeCode("출발지")
+                .lon(firstCoordinate(routeSummary.getStart(), 0))
+                .lat(firstCoordinate(routeSummary.getStart(), 1))
+                .build());
+
+        for (WaypointEntry waypoint : existingWaypoints) {
+            if (currentPathIndex >= 0 && waypoint.pathIndex() >= 0 && waypoint.pathIndex() <= currentPathIndex) {
+                locations.add(locationFromWaypoint(waypoint, "WayPoint"));
+            }
+        }
+
+        locations.add(RouteLocationNameRespDto.builder()
+                .name("현재 위치")
+                .type("Current")
+                .typeCode("현재위치")
+                .lon(String.valueOf(currentLon))
+                .lat(String.valueOf(currentLat))
+                .build());
+
+        for (WaypointEntry waypoint : requestedWaypoints) {
+            if (existingWaypoints.contains(waypoint)
+                    && currentPathIndex >= 0
+                    && waypoint.pathIndex() >= 0
+                    && waypoint.pathIndex() <= currentPathIndex) {
+                continue;
+            }
+            locations.add(locationFromWaypoint(waypoint, "WayPoint"));
+        }
+
+        locations.add(RouteLocationNameRespDto.builder()
+                .name(lastLocationName(routeSummary.getLocateName()))
+                .type("Goal")
+                .typeCode("도착지")
+                .lon(firstCoordinate(routeSummary.getGoal(), 0))
+                .lat(firstCoordinate(routeSummary.getGoal(), 1))
+                .build());
+
+        List<RouteLocationNameRespDto> sequenced = new ArrayList<>();
+        for (int i = 0; i < locations.size(); i++) {
+            RouteLocationNameRespDto location = locations.get(i);
+            sequenced.add(RouteLocationNameRespDto.builder()
+                    .sequenceNum(i + 1)
+                    .name(location.getName())
+                    .type(location.getType())
+                    .typeCode(location.getTypeCode())
+                    .contentId(location.getContentId())
+                    .contentTypeId(location.getContentTypeId())
+                    .lon(location.getLon())
+                    .lat(location.getLat())
+                    .build());
+        }
+        return sequenced;
+    }
+
+    private RouteLocationNameRespDto locationFromWaypoint(WaypointEntry waypoint, String type) {
+        List<Double> coordinate = parseCoordinate(waypoint.coordinate());
+        return RouteLocationNameRespDto.builder()
+                .name(waypoint.name())
+                .type(type)
+                .typeCode(waypoint.typeCode())
+                .contentId(waypoint.contentId())
+                .contentTypeId(waypoint.contentTypeId())
+                .lon(String.valueOf(coordinate.get(0)))
+                .lat(String.valueOf(coordinate.get(1)))
+                .build();
+    }
+
+    private String firstCoordinate(String coordinate, int index) {
+        try {
+            return String.valueOf(parseCoordinate(coordinate).get(index));
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    private String lastLocationName(String locateName) {
+        List<String> names = splitCsv(locateName);
+        return names.isEmpty() ? "도착지" : names.get(names.size() - 1);
     }
 
     private RouteAdjustmentComparisonDto adjustmentComparison(RouteGuideRespDto previousRoute, RouteGuideRespDto adjustedRoute) {
@@ -874,8 +1293,10 @@ public class RouteService implements RouteServiceImpl {
         return normalizeOption(RouteOptionDto.builder()
                 .cyclingProfile(summary.getCyclingProfile())
                 .fastRoute(summary.getFastRoute())
+                .routePreference(summary.getRoutePreference())
                 .avoidSteps(summary.getAvoidSteps())
                 .avoidFords(summary.getAvoidFords())
+                .avoidFerries(summary.getAvoidFerries())
                 .skillLevel(summary.getSkillLevel())
                 .build());
     }
@@ -908,12 +1329,18 @@ public class RouteService implements RouteServiceImpl {
                 Boolean.TRUE.equals(intent.getAvoidConstruction()),
                 Boolean.TRUE.equals(intent.getAvoidSteps()),
                 Boolean.TRUE.equals(intent.getAvoidFords()),
+                Boolean.TRUE.equals(intent.getAvoidFerries()),
                 Boolean.TRUE.equals(intent.getAvoidIce()),
                 intent.getFastRoute(),
+                normalizedRoutePreference(intent.getRoutePreference()),
+                normalizedRouteShape(intent.getRouteShape()),
                 normalizedCyclingProfile(intent.getCyclingProfile()),
                 Boolean.TRUE.equals(intent.getPreferPaved()),
                 Boolean.TRUE.equals(intent.getPreferBikeRoad()),
-                Boolean.TRUE.equals(intent.getAvoidMainRoad()),
+                Boolean.TRUE.equals(intent.getAvoidMainRoad())
+                        || "QUIET".equalsIgnoreCase(intent.getRoadPreference())
+                        || "MAIN_ROAD_AVOID".equalsIgnoreCase(intent.getRoadPreference()),
+                normalizedRoadPreference(intent.getRoadPreference()),
                 intent.getWeightUpdate(),
                 wayPoints,
                 wayPointNames
@@ -924,66 +1351,95 @@ public class RouteService implements RouteServiceImpl {
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return List.of();
         }
+        List<Double> start = parseCoordinate(requestDto.getStart());
+        List<Double> goal = parseCoordinate(requestDto.getGoal());
+        Optional<List<Double>> userLocation = userLocation(requestDto);
         List<ResolvedWaypoint> result = new ArrayList<>();
+        List<Double> previousPoint = start;
         for (String name : wayPointNames) {
-            KakaoSearchResponse.Document document = findWaypointNearRoute(requestDto, name)
-                    .orElseGet(() -> findWaypointByName(name));
+            KakaoSearchResponse.Document document = findWaypointNearPoint(previousPoint, name)
+                    .or(() -> findWaypointOnRouteLine(start, goal, name))
+                    .or(() -> userLocation.flatMap(location -> findWaypointNearPoint(location, name)))
+                    .orElse(null);
             if (document == null) {
-                throw new CustomException(ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND);
+                throw waypointNotFound(name);
             }
+            String coordinate = document.getX() + "," + document.getY();
             result.add(new ResolvedWaypoint(
-                    document.getX() + "," + document.getY(),
+                    coordinate,
                     defaultString(document.getPlace_name(), name)
             ));
+            previousPoint = parseCoordinate(coordinate);
         }
         return result;
     }
 
-    private Optional<KakaoSearchResponse.Document> findWaypointNearRoute(RouteRecommendationReqDto requestDto, String name) {
-        List<Double> start = parseCoordinate(requestDto.getStart());
-        List<Double> goal = parseCoordinate(requestDto.getGoal());
+    private CustomException waypointNotFound(String name) {
+        return new CustomException(
+                ErrorCode.AI_RECOMMENDATION_WAYPOINT_NOT_FOUND,
+                "경로상 주변에 경유지 '" + name + "'을(를) 찾을 수 없습니다."
+        );
+    }
+
+    private Optional<KakaoSearchResponse.Document> findWaypointOnRouteLine(List<Double> start, List<Double> goal, String name) {
         String radius = routeWaypointSearchRadius(start, goal);
 
         Map<String, KakaoSearchResponse.Document> candidates = new LinkedHashMap<>();
         for (SearchPoint point : routeSearchPoints(start, goal)) {
-            KakaoSearchResponse response;
-            try {
-                response = kakaoClient.kakaoSearchByLocation(
-                        String.valueOf(point.lon()),
-                        String.valueOf(point.lat()),
-                        radius,
-                        name
-                );
-            } catch (RuntimeException e) {
-                continue;
-            }
-            if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
-                continue;
-            }
-            for (KakaoSearchResponse.Document document : response.getDocuments()) {
-                if (hasCoordinate(document)) {
-                    candidates.putIfAbsent(kakaoDocumentKey(document), document);
-                }
-            }
+            collectWaypointCandidates(candidates, point.lon(), point.lat(), radius, name);
         }
         return candidates.values().stream()
                 .min(Comparator.comparingDouble(document -> routeDetourKm(start, goal, document)));
     }
 
-    private KakaoSearchResponse.Document findWaypointByName(String name) {
+    private Optional<KakaoSearchResponse.Document> findWaypointNearPoint(List<Double> point, String name) {
+        Map<String, KakaoSearchResponse.Document> candidates = new LinkedHashMap<>();
+        collectWaypointCandidates(candidates, point.get(0), point.get(1), "5000", name);
+        if (candidates.isEmpty()) {
+            collectWaypointCandidates(candidates, point.get(0), point.get(1), "10000", name);
+        }
+        return candidates.values().stream()
+                .min(Comparator.comparingDouble(document -> haversine(
+                        point.get(1),
+                        point.get(0),
+                        Double.parseDouble(document.getY()),
+                        Double.parseDouble(document.getX())
+                )));
+    }
+
+    private void collectWaypointCandidates(
+            Map<String, KakaoSearchResponse.Document> candidates,
+            double lon,
+            double lat,
+            String radius,
+            String name
+    ) {
         KakaoSearchResponse response;
         try {
-            response = kakaoClient.kakoSearchByName(name);
+            response = kakaoClient.kakaoSearchByLocation(
+                    String.valueOf(lon),
+                    String.valueOf(lat),
+                    radius,
+                    name
+            );
         } catch (RuntimeException e) {
-            return null;
+            return;
         }
         if (response == null || response.getDocuments() == null || response.getDocuments().isEmpty()) {
-            return null;
+            return;
         }
-        return response.getDocuments().stream()
-                .filter(this::hasCoordinate)
-                .findFirst()
-                .orElse(null);
+        for (KakaoSearchResponse.Document document : response.getDocuments()) {
+            if (hasCoordinate(document)) {
+                candidates.putIfAbsent(kakaoDocumentKey(document), document);
+            }
+        }
+    }
+
+    private Optional<List<Double>> userLocation(RouteRecommendationReqDto requestDto) {
+        if (requestDto.getCurrentLon() == null || requestDto.getCurrentLat() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(List.of(requestDto.getCurrentLon(), requestDto.getCurrentLat()));
     }
 
     private boolean hasCoordinate(KakaoSearchResponse.Document document) {
@@ -1008,9 +1464,11 @@ public class RouteService implements RouteServiceImpl {
         double goalLat = goal.get(1);
         return List.of(
                 new SearchPoint(startLon, startLat),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.15),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.25),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.50),
                 interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.75),
+                interpolateSearchPoint(startLon, startLat, goalLon, goalLat, 0.85),
                 new SearchPoint(goalLon, goalLat)
         );
     }
@@ -1028,10 +1486,10 @@ public class RouteService implements RouteServiceImpl {
             return "1500";
         }
         if (distanceKm < 20.0) {
-            return "3000";
+            return "5000";
         }
         if (distanceKm < 50.0) {
-            return "5000";
+            return "8000";
         }
         return "10000";
     }
@@ -1050,11 +1508,22 @@ public class RouteService implements RouteServiceImpl {
         String skillLevel = directive.targetDifficulty() == null
                 ? normalized.getSkillLevel()
                 : skillLevelForDifficulty(directive.targetDifficulty());
+        String routePreference = directive.routePreference();
+        if (routePreference == null
+                && ("LONGEST".equals(directive.routeShape()) || "DETOUR".equals(directive.routeShape()))) {
+            routePreference = "RECOMMENDED";
+        }
+        Boolean fastRoute = directive.fastRoute();
+        if (fastRoute == null && routePreference != null) {
+            fastRoute = "FASTEST".equals(routePreference);
+        }
         return RouteOptionDto.builder()
                 .cyclingProfile(defaultString(directive.cyclingProfile(), normalized.getCyclingProfile()))
-                .fastRoute(directive.fastRoute() == null ? normalized.getFastRoute() : directive.fastRoute())
+                .fastRoute(fastRoute == null ? normalized.getFastRoute() : fastRoute)
+                .routePreference(defaultString(routePreference, normalized.getRoutePreference()))
                 .avoidSteps(directive.avoidSteps() || Boolean.TRUE.equals(normalized.getAvoidSteps()))
                 .avoidFords(directive.avoidFords() || Boolean.TRUE.equals(normalized.getAvoidFords()))
+                .avoidFerries(directive.avoidFerries() || Boolean.TRUE.equals(normalized.getAvoidFerries()))
                 .skillLevel(skillLevel)
                 .build();
     }
@@ -1079,6 +1548,11 @@ public class RouteService implements RouteServiceImpl {
         options.add(fastOption(baseOption));
         options.add(roadOption(baseOption, directive));
         options.add(bikeFriendlyOption(baseOption, directive));
+        if ("LONGEST".equals(directive.routeShape()) || "DETOUR".equals(directive.routeShape())) {
+            options.add(preferenceOption(baseOption, "RECOMMENDED"));
+            options.add(preferenceOption(baseOption, "SHORTEST"));
+            options.add(preferenceOption(baseOption, "FASTEST"));
+        }
 
         Set<String> seen = new HashSet<>();
         return options.stream()
@@ -1104,12 +1578,41 @@ public class RouteService implements RouteServiceImpl {
 
     private String locationNameForRecommendation(RouteRecommendationReqDto requestDto, List<String> wayPointNames) {
         List<String> baseNames = splitCsv(defaultString(requestDto.getLocateName(), requestDto.getLocationName()));
-        String startName = baseNames.isEmpty() ? "출발지" : baseNames.get(0);
-        String goalName = baseNames.size() >= 2 ? baseNames.get(baseNames.size() - 1) : "도착지";
+        String startName = resolveRecommendationEndpointName(
+                baseNames.isEmpty() ? null : baseNames.get(0),
+                requestDto.getStart(),
+                "출발지"
+        );
+        String goalName = resolveRecommendationEndpointName(
+                baseNames.size() >= 2 ? baseNames.get(baseNames.size() - 1) : null,
+                requestDto.getGoal(),
+                "도착지"
+        );
         if (wayPointNames == null || wayPointNames.isEmpty()) {
             return startName + "," + goalName;
         }
         return startName + "," + String.join(",", wayPointNames) + "," + goalName;
+    }
+
+    private String resolveRecommendationEndpointName(String requestedName, String coordinate, String defaultLabel) {
+        if (requestedName != null && !requestedName.isBlank() && !requestedName.equals(defaultLabel)) {
+            return requestedName;
+        }
+        return resolveCoordinateAddressName(coordinate, defaultLabel);
+    }
+
+    private String resolveCoordinateAddressName(String coordinate, String fallback) {
+        try {
+            List<Double> parsed = parseCoordinate(coordinate);
+            return kakaoClient.kakaoAddressNameByCoordinate(
+                            String.valueOf(parsed.get(0)),
+                            String.valueOf(parsed.get(1))
+                    )
+                    .filter(name -> !name.isBlank())
+                    .orElse(fallback);
+        } catch (RuntimeException e) {
+            return fallback;
+        }
     }
 
     private String typeCodeForRecommendation(List<String> wayPointNames) {
@@ -1127,8 +1630,10 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(defaultString(override.getCyclingProfile(), defaults.getCyclingProfile()))
                 .fastRoute(defaultBoolean(override.getFastRoute(), defaults.getFastRoute()))
+                .routePreference(defaultString(override.getRoutePreference(), defaults.getRoutePreference()))
                 .avoidSteps(defaultBoolean(override.getAvoidSteps(), defaults.getAvoidSteps()))
                 .avoidFords(defaultBoolean(override.getAvoidFords(), defaults.getAvoidFords()))
+                .avoidFerries(defaultBoolean(override.getAvoidFerries(), defaults.getAvoidFerries()))
                 .skillLevel(defaultString(override.getSkillLevel(), defaults.getSkillLevel()))
                 .build();
     }
@@ -1141,8 +1646,10 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(defaultString(option.getCyclingProfile(), defaults.getCyclingProfile()))
                 .fastRoute(defaultBoolean(option.getFastRoute(), defaults.getFastRoute()))
+                .routePreference(defaultString(option.getRoutePreference(), defaults.getRoutePreference()))
                 .avoidSteps(defaultBoolean(option.getAvoidSteps(), defaults.getAvoidSteps()))
                 .avoidFords(defaultBoolean(option.getAvoidFords(), defaults.getAvoidFords()))
+                .avoidFerries(defaultBoolean(option.getAvoidFerries(), defaults.getAvoidFerries()))
                 .skillLevel(defaultString(option.getSkillLevel(), defaults.getSkillLevel()))
                 .build();
     }
@@ -1151,8 +1658,10 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(base.getCyclingProfile())
                 .fastRoute(false)
+                .routePreference(base.getRoutePreference())
                 .avoidSteps(base.getAvoidSteps())
                 .avoidFords(base.getAvoidFords())
+                .avoidFerries(base.getAvoidFerries())
                 .skillLevel(lowerSkillLevel(base.getSkillLevel()))
                 .build();
     }
@@ -1161,8 +1670,10 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(base.getCyclingProfile())
                 .fastRoute(true)
+                .routePreference(base.getRoutePreference())
                 .avoidSteps(base.getAvoidSteps())
                 .avoidFords(base.getAvoidFords())
+                .avoidFerries(base.getAvoidFerries())
                 .skillLevel(base.getSkillLevel())
                 .build();
     }
@@ -1171,8 +1682,10 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(defaultString(directive.cyclingProfile(), "cycling-road"))
                 .fastRoute(true)
+                .routePreference(base.getRoutePreference())
                 .avoidSteps(base.getAvoidSteps())
                 .avoidFords(base.getAvoidFords())
+                .avoidFerries(base.getAvoidFerries())
                 .skillLevel(base.getSkillLevel())
                 .build();
     }
@@ -1181,9 +1694,23 @@ public class RouteService implements RouteServiceImpl {
         return RouteOptionDto.builder()
                 .cyclingProfile(defaultString(directive.cyclingProfile(), "cycling-regular"))
                 .fastRoute(false)
+                .routePreference(base.getRoutePreference())
                 .avoidSteps(true)
                 .avoidFords(true)
+                .avoidFerries(base.getAvoidFerries())
                 .skillLevel(lowerSkillLevel(base.getSkillLevel()))
+                .build();
+    }
+
+    private RouteOptionDto preferenceOption(RouteOptionDto base, String preference) {
+        return RouteOptionDto.builder()
+                .cyclingProfile(base.getCyclingProfile())
+                .fastRoute("FASTEST".equals(preference))
+                .routePreference(preference)
+                .avoidSteps(base.getAvoidSteps())
+                .avoidFords(base.getAvoidFords())
+                .avoidFerries(base.getAvoidFerries())
+                .skillLevel(base.getSkillLevel())
                 .build();
     }
 
@@ -1191,8 +1718,10 @@ public class RouteService implements RouteServiceImpl {
         return String.join("|",
                 defaultString(option.getCyclingProfile(), ""),
                 String.valueOf(Boolean.TRUE.equals(option.getFastRoute())),
+                defaultString(option.getRoutePreference(), ""),
                 String.valueOf(Boolean.TRUE.equals(option.getAvoidSteps())),
                 String.valueOf(Boolean.TRUE.equals(option.getAvoidFords())),
+                String.valueOf(Boolean.TRUE.equals(option.getAvoidFerries())),
                 defaultString(option.getSkillLevel(), "")
         );
     }
@@ -1275,6 +1804,15 @@ public class RouteService implements RouteServiceImpl {
             double unpaved = unpavedAmount(route);
             if (unpaved > 5.0) {
                 score -= Math.min(0.30, (unpaved / 100.0) * 0.50);
+            }
+        }
+        if ("UNPAVED".equals(directive.roadPreference())) {
+            score += Math.min(0.30, (unpavedAmount(route) / 100.0) * 0.50);
+        }
+        if ("ROAD".equals(directive.roadPreference())) {
+            double roadAmount = summaryAmount(route, "waytype", value -> Set.of(1, 2, 3).contains(value));
+            if (roadAmount < 40.0) {
+                score -= Math.min(0.30, ((40.0 - roadAmount) / 40.0) * 0.30);
             }
         }
         if (directive.preferBikeRoad()) {
@@ -1576,6 +2114,45 @@ public class RouteService implements RouteServiceImpl {
         };
     }
 
+    private String normalizedRoutePreference(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "FAST", "FASTEST" -> "FASTEST";
+            case "SHORT", "SHORTEST" -> "SHORTEST";
+            case "RECOMMENDED", "NORMAL" -> "RECOMMENDED";
+            default -> null;
+        };
+    }
+
+    private String normalizedRouteShape(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "LONG", "LONGEST" -> "LONGEST";
+            case "DETOUR", "SCENIC" -> "DETOUR";
+            case "DIRECT" -> "DIRECT";
+            default -> null;
+        };
+    }
+
+    private String normalizedRoadPreference(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "PAVED" -> "PAVED";
+            case "BIKEWAY", "BIKE_ROAD", "CYCLEWAY" -> "BIKEWAY";
+            case "UNPAVED", "DIRT", "GRAVEL" -> "UNPAVED";
+            case "ROAD", "ROADWAY" -> "ROAD";
+            case "QUIET" -> "QUIET";
+            case "MAIN_ROAD_AVOID", "AVOID_MAIN_ROAD" -> "MAIN_ROAD_AVOID";
+            default -> null;
+        };
+    }
+
     private String defaultString(String value, String defaultValue) {
         return value == null || value.isBlank() ? defaultValue : value;
     }
@@ -1606,6 +2183,23 @@ public class RouteService implements RouteServiceImpl {
     private record ResolvedWaypoint(String coordinate, String name) {
     }
 
+    private record WaypointEntry(
+            String coordinate,
+            String name,
+            String typeCode,
+            String contentId,
+            String contentTypeId,
+            int pathIndex
+    ) {
+    }
+
+    private record RouteRebuildPlan(
+            RouteRequestDto requestDto,
+            List<RoutePathRespDto> routePrefix,
+            List<RouteLocationNameRespDto> fullLocations
+    ) {
+    }
+
     private record SearchPoint(double lon, double lat) {
     }
 
@@ -1615,12 +2209,16 @@ public class RouteService implements RouteServiceImpl {
             boolean avoidConstruction,
             boolean avoidSteps,
             boolean avoidFords,
+            boolean avoidFerries,
             boolean avoidIce,
             Boolean fastRoute,
+            String routePreference,
+            String routeShape,
             String cyclingProfile,
             boolean preferPaved,
             boolean preferBikeRoad,
             boolean avoidMainRoad,
+            String roadPreference,
             Map<String, Double> weights,
             List<String> wayPoints,
             List<String> wayPointNames
@@ -1633,11 +2231,15 @@ public class RouteService implements RouteServiceImpl {
                     false,
                     false,
                     false,
+                    false,
+                    null,
+                    null,
                     null,
                     null,
                     false,
                     false,
                     false,
+                    null,
                     null,
                     List.of(),
                     List.of()

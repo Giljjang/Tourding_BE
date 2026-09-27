@@ -1,6 +1,8 @@
 package com.example.tourding.external.open_routes_service;
 
 import com.example.tourding.direction.dto.RouteOptionDto;
+import com.example.tourding.enums.ErrorCode;
+import com.example.tourding.exception.CustomException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.Cache;
@@ -8,6 +10,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -23,7 +26,7 @@ public class ORSCilent {
     @Value("${open.route.service.key}")
     private String routeServiceKey;
 
-    @Value("${open.route.service.base-url:https://api.openrouteservice.org}")
+    @Value("${open.route.service.base-url:https://api.heigit.org/openrouteservice}")
     private String routeServiceBaseUrl;
 
     public ORSResponse getORSDirection(String start, String goal, String wayPoints) {
@@ -49,8 +52,10 @@ public class ORSCilent {
                 defaultString(wayPoints),
                 defaultString(resolvedOption.getCyclingProfile()),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getFastRoute())),
+                defaultString(resolvedOption.getRoutePreference()),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidSteps())),
                 String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFords())),
+                String.valueOf(Boolean.TRUE.equals(resolvedOption.getAvoidFerries())),
                 defaultString(resolvedOption.getSkillLevel()),
                 String.valueOf(alternativeRoutesEnabled)
         );
@@ -124,7 +129,7 @@ public class ORSCilent {
 
             Map<String, Object> body = new HashMap<>();
             body.put("coordinates", coordinates);
-            body.put("preference", Boolean.TRUE.equals(resolvedOption.getFastRoute()) ? "fastest" : "recommended");
+            body.put("preference", routePreference(resolvedOption));
             body.put("elevation", true);
             body.put("instructions", true);
             body.put("maneuvers", true);
@@ -157,8 +162,12 @@ public class ORSCilent {
             );
 
             return response.getBody();
+        } catch (RestClientResponseException e) {
+            throw orsRequestException(e);
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("OpenRouteService 호출 실패", e);
+            throw new CustomException(ErrorCode.ORS_ROUTE_REQUEST_FAILED, "경로 API 호출에 실패했습니다.");
         }
     }
 
@@ -187,9 +196,24 @@ public class ORSCilent {
             );
 
             return response.getBody();
+        } catch (RestClientResponseException e) {
+            throw orsRequestException(e);
+        } catch (CustomException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("OpenRouteService 분석 호출 실패", e);
+            throw new CustomException(ErrorCode.ORS_ROUTE_REQUEST_FAILED, "경로 분석 API 호출에 실패했습니다.");
         }
+    }
+
+    private CustomException orsRequestException(RestClientResponseException e) {
+        String responseBody = e.getResponseBodyAsString();
+        if (e.getStatusCode().value() == 403 && responseBody != null && responseBody.contains("Quota exceeded")) {
+            return new CustomException(
+                    ErrorCode.ORS_ROUTE_REQUEST_FAILED,
+                    "경로 API 사용량이 초과됐거나 인증이 거부됐습니다. ORS 키와 요청 URL을 확인해 주세요."
+            );
+        }
+        return new CustomException(ErrorCode.ORS_ROUTE_REQUEST_FAILED, "경로 API 호출에 실패했습니다.");
     }
 
     private Map<String, Object> buildOptions(RouteOptionDto option) {
@@ -200,6 +224,9 @@ public class ORSCilent {
         if (Boolean.TRUE.equals(option.getAvoidFords())) {
             avoidFeatures.add("fords");
         }
+        if (Boolean.TRUE.equals(option.getAvoidFerries())) {
+            avoidFeatures.add("ferries");
+        }
 
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("avoid_features", avoidFeatures);
@@ -207,6 +234,18 @@ public class ORSCilent {
                 "weightings", Map.of("steepness_difficulty", steepnessDifficulty(option.getSkillLevel()))
         ));
         return options;
+    }
+
+    private String routePreference(RouteOptionDto option) {
+        String preference = option.getRoutePreference();
+        if (preference == null || preference.isBlank()) {
+            return Boolean.TRUE.equals(option.getFastRoute()) ? "fastest" : "recommended";
+        }
+        return switch (preference.toUpperCase(Locale.ROOT)) {
+            case "SHORTEST" -> "shortest";
+            case "RECOMMENDED" -> "recommended";
+            default -> "fastest";
+        };
     }
 
     private int steepnessDifficulty(String skillLevel) {
