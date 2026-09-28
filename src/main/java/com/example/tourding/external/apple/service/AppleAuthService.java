@@ -69,7 +69,10 @@ public class AppleAuthService {
         String privateKey = beginMarker >= 0 && endMarker > beginMarker
                 ? configuredKey.substring(beginMarker + "BEGIN PRIVATE KEY".length(), endMarker)
                 : configuredKey;
-        privateKey = privateKey.replaceAll("\\s+", "");
+        privateKey = privateKey.replaceAll("\\s+", "")
+                // BEGIN/END marker 뒤에 남은 PEM 구분문자 제거
+                .replaceFirst("^[^A-Za-z0-9+/=]+", "")
+                .replaceFirst("[^A-Za-z0-9+/=]+$", "");
 
         if (!privateKey.matches("[A-Za-z0-9+/]+={0,2}")) {
             throw new IllegalArgumentException("APPLE_PRIVATE_KEY의 PEM 본문에 허용되지 않은 문자가 있습니다.");
