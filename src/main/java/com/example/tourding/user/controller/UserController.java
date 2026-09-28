@@ -10,7 +10,7 @@ import com.example.tourding.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +18,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 @RequestMapping("/user")
 @Tag(name = "User API", description = "사용자 관리 API")
 public class UserController {
@@ -67,24 +68,31 @@ public class UserController {
         return ResponseEntity.ok(userService.getRidingProfile(userId));
     }
 
-    @Operation(summary = "사용자 삭제", description = "ID를 기준으로 사용자를 삭제합니다.")
+    @Operation(
+            summary = "회원 탈퇴",
+            description = "사용자와 사용자에게 연결된 데이터를 삭제합니다."
+    )
     @DeleteMapping("/delete")
     public ResponseEntity<Void> deleteUser(@RequestParam Long id) {
+        log.info("User deletion requested - userId={}", id);
         userService.deleteUser(id);
+        log.info("User deletion completed - userId={}", id);
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(
+            summary = "Apple 회원 탈퇴",
+            description = "Apple authorization code를 검증하고 Apple 연결 해제 후 Tourding 내부 데이터를 삭제합니다."
+    )
     @PostMapping("/revoke")
-    public ResponseEntity<String> revokeUser(@RequestParam Long userId, @RequestParam("authorizationCode") String authorizationCode) {
-        try {
-            appleAuthService.revoke(authorizationCode);
-
-            userService.deleteUser(userId);
-
-            return ResponseEntity.ok("탈퇴 완료");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("회원 탈퇴 실패" + e.getMessage());
-        }
+    public ResponseEntity<String> revokeUser(
+            @RequestParam Long userId,
+            @RequestParam("authorizationCode") String authorizationCode
+    ) throws Exception {
+        log.info("Apple user deletion requested - userId={}", userId);
+        appleAuthService.revoke(authorizationCode);
+        userService.deleteUser(userId);
+        log.info("Apple user deletion completed - userId={}", userId);
+        return ResponseEntity.ok("탈퇴 완료");
     }
 }
